@@ -16,6 +16,7 @@
 #pip install flask-babel
 #pip install guess-language_spirit
 #pip install requests
+#pip install langdetect
 #----------------------------
 flask==2.2.2
 flask-wtf==1.1.1
@@ -35,3 +36,4 @@ flask-babel==3.0.1
 guess-language_spirit==0.5.3
 requests==2.28.2
 python-dotenv==1.0.0
+langdetect==1.0.9

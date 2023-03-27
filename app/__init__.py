@@ -31,7 +31,7 @@ def create_app(config_class=Config):
     mail.init_app(app)
     bootstrap.init_app(app)
     moment.init_app(app)
-    babel.init_app(app)
+    babel.init_app(app, locale_selector=get_locale)
 
     from app.errors import bp as errors_bp
     app.register_blueprint(errors_bp)
@@ -74,7 +74,7 @@ def create_app(config_class=Config):
 
     return app
 
-@babel.localeselector
+#@Babel.localeselector
 def get_locale():
     return request.accept_languages.best_match(current_app.config['LANGUAGES'])
 
