@@ -16,7 +16,6 @@ class Config(object):
     DB_SERVER = SERVER
     DB_PORT = '5432'
     DB_NAME = 'postgres'
-    
     print(f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_SERVER}:{DB_PORT}/{DB_NAME}")
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_SERVER}:{DB_PORT}/{DB_NAME}" 
 
