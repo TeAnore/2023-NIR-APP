@@ -1,4 +1,3 @@
-import json
 from app import db
 from app.service import logic
 from app.models import User, Task
@@ -80,7 +79,27 @@ def run_tasks():
     log.status_log(f"Try run download tasks")
     data = request.get_json() or {}
 
-    tasks = Task.to_collection_short_dict(Task.query.filter_by(status=data['status']))
+    if 'status' not in data:
+        status = 0
+    else:
+        status = data['status']
+
+    tasks = Task.to_collection_short_dict(Task.query.filter_by(status=status).order_by('created'))
+
+    service = logic.Service()
+    service.get_video_from_youtube(tasks)
+    
+    log.status_log(f"Task coplited!")
+    response = jsonify(tasks)
+    response.status_code = 200
+    return response
+
+@bp.route('/tasks/<int:id>/run', methods=['POST'])
+def run_task(id):
+    log.status_log(f"Try run download tasks")
+    data = request.get_json() or {}
+
+    tasks = Task.to_collection_short_dict(Task.query.filter_by(id=id))
 
     service = logic.Service()
     service.get_video_from_youtube(tasks)

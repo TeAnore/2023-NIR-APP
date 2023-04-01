@@ -1,5 +1,5 @@
 import re
-
+import json
 from pytube import YouTube
 
 from app import db
@@ -17,10 +17,9 @@ class Service():
             status = info['status']
             if status != 'OK':
                 reason = info['reason']
+                self.log.msg_log(f"Check availability task_id: {task['id']} status: {status} - reason: {reason}")
             else:
-                reason = ''
-        
-            self.log.msg_log(f"Check availability task_id: {task['id']} status: {status} - reason: {reason}")
+                self.log.msg_log(f"Check availability task_id: {task['id']} status: {status}")
 
             if status == 'UNPLAYABLE':
                 if reason == 'Join this channel to get access to members-only content like this video, and other exclusive perks.':
@@ -79,43 +78,176 @@ class Service():
             return f"unknown {platform.lower()}"
 
     def get_video_from_youtube(self, tasks):
+        try:
+            needDownload = True
 
-        for task in tasks['items']:
-            self.log.status_log(f"Process task: {task}")
-            self.log.msg_log(f"Check platform: {self.check_platform(task['platform'], task['url'])}")
-            if self.check_platform(task['platform'], task['url']):
-                video = YouTube(task['url'])
-                title = video.title
-                views = video.views
-                self.log.msg_log(f"Video: {title} views: {views}")
+            for task in tasks['items']:
+                self.log.status_log(f"Process task: {task}")
                 task_entity=Task.query.get(task['id'])
-                if self.check_availability(task, video.vid_info['playabilityStatus']):
-                    
+
+                if self.check_platform(task['platform'], task['url']):
+                    self.log.msg_log(f"Check task: {task['id']} platform: True")
                     try:
-                        self.log.msg_log(f"vid_info: {video.vid_info}")
-                        self.log.msg_log(f"Available resolution: {video.streams.filter(progressive='True').get_highest_resolution()}")
-                    
-                        try:
-                            video.streams.filter(progressive="True").get_highest_resolution().download(output_path=current_app.config['PATH_DOWNLOAD'])
-                        except Exception as err:
-                            task_entity.from_dict({"status":3})
-                            db.session.commit() 
-                            self.log.error_log(f"Error downlod video: {err}")
-                            raise err
-                        
-                        task_entity.from_dict({"status":2})
-                        db.session.commit() 
-
-                        self.log.status_log(f"Comlite task: {task}")
-
-                    except Exception as err:
-                        self.log.error_log(f"Error process task: {task}")
-                        self.log.error_log(f"Video Info: {video.vid_info}")
+                        video = YouTube(task['url'])
+                    except Exception as e:
+                        task_entity.from_dict({"status":1})
+                        db.session.commit()
+                        self.log.error_log(f"Error process task id: {task['id']}. Error: {e}")
                         pass
-                
+                    
+                    if self.check_availability(task, video.vid_info['playabilityStatus']):
+                        self.log.msg_log(f"Check task: {task['id']} playability status: True")
+                        cnt_vi = Video.query.filter_by(video_key=task['video_key']).count()
+
+                        if cnt_vi == 0:
+                            self.log.msg_log(f"Video info task: {task['id']} count {cnt_vi}")
+
+                            try:
+                                self.log.msg_log(f"Get video info task: {task['id']} start")
+                                #self.log.dev_log(f"Video info task: {task['id']} info: {video.vid_info}")
+                                #self.log.msg_log(f"Available task: {task['id']} progressive resolution: {video.streams.filter(progressive='True')}")
+                                #self.log.msg_log(f"Available task: {task['id']} adaptive resolution: {video.streams.filter(adaptive='True')}")
+
+                                try:
+                                    self.create_video_info(task, video)
+                                    needDownload = False
+                                    task_entity.from_dict({"status":2})
+                                    db.session.commit()
+
+                                except Exception as e:
+                                    self.log.error_log(f"Error Create Video Info: {e}")
+                                    raise e
+                                
+                                if needDownload:
+                                    self.log.msg_log(f"Download video task: {task['id']} start")
+
+                                    try:
+                                        video.streams.filter(progressive="True").get_highest_resolution().download(output_path=current_app.config['PATH_DOWNLOAD'])
+                                    except Exception as e:
+                                        task_entity.from_dict({"status":3})
+                                        db.session.commit() 
+                                        self.log.error_log(f"Downlod video: {task['id']}. Error: {e}")
+                                        raise e
+                                else:
+                                    self.log.msg_log(f"Download video task: {task['id']} not needed")
+
+
+                                self.log.msg_log(f"Get video info task: {task['id']} comlite")
+
+                            except Exception as e:
+                                self.log.error_log(f"Get video info task: {task['id']}. Error: {e}")
+                                pass
+                        else:
+                            task_entity.from_dict({"status":2})
+                            db.session.commit() 
+                            self.log.msg_log(f"Video info task: {task['id']} exist")
+                            pass
+
+                    else:
+                        task_entity.from_dict({"status":1})
+                        db.session.commit()
+                        self.log.error_log(f"Check task: {task['id']} playability status: False")
+
                 else:
                     task_entity.from_dict({"status":1})
                     db.session.commit()
+                    self.log.error_log(f"Check task: {task['id']} platform: False")
 
-    def get_video_info(self, video):
-        pass
+        except Exception as e:
+            self.log.error_log(f"get_video_from_youtube: {e}")
+
+    def create_video_info(self, task, vi):
+        self.log.status_log(f"Create Video Info task id: {task['id']} key: {task['video_key']}")
+        try:
+            video = Video()
+            try:
+                self.log.dev_log(f"Try parse vid_info")
+                #for key in vi.vid_info: self.log.dev_log(f"vid_info key: {key}")
+                '''
+                vid_info key: responseContext
+                vid_info key: playabilityStatus
+                vid_info key: streamingData
+                vid_info key: playbackTracking
+                vid_info key: captions
+                vid_info key: videoDetails
+                vid_info key: playerConfig
+                vid_info key: storyboards
+                vid_info key: trackingParams
+                vid_info key: attestation
+                vid_info key: adBreakParams
+                vid_info key: playerSettingsMenuData
+                '''
+                #for key in details: self.log.dev_log(f"details key: {key}")
+                '''
+                details key: videoId
+                details key: title
+                details key: lengthSeconds
+                details key: channelId
+                details key: isOwnerViewing
+                details key: shortDescription
+                details key: isCrawlable
+                details key: thumbnail
+                details key: allowRatings
+                details key: viewCount
+                details key: author
+                details key: isPrivate
+                details key: isUnpluggedCorpus
+                details key: isLiveContent
+                '''
+                #for key in details: self.log.dev_log(f"details key: {key}")
+
+
+                details = vi.vid_info.get('videoDetails', {})
+                #details = vi.vid_info['videoDetails']
+                title = details.get('title', '')
+                views = details.get('viewCount', 0)
+                author = details.get('author', '')
+                keywords = str(details.get('keywords', []))
+                
+                shortDescription = details.get('shortDescription', '')
+                lengthSeconds = details.get('lengthSeconds', '')
+                
+                captions = vi.vid_info.get('captions', {})
+                playerCaptionsTracklistRenderer = captions.get('playerCaptionsTracklistRenderer', {})
+                captionTracks = playerCaptionsTracklistRenderer.get('captionTracks', {})
+
+                #captionTracks = vi.vid_info['captions']['playerCaptionsTracklistRenderer']['captionTracks']
+                if len(captionTracks) > 0:
+                    language_code = captionTracks[0].get('languageCode', '')
+                    is_translatable = captionTracks[0].get('isTranslatable', False)
+                else:
+                    language_code = ''
+                    is_translatable = False
+
+                streamingData = vi.vid_info.get('streamingData', {})
+                progressive_formats = str(streamingData.get('formats', {}))
+                adaptive_formats = str(streamingData.get('adaptiveFormats', {}))
+
+            except Exception as e:
+                self.log.dev_log(f"Error parse vid_info: {e}")
+                raise e
+
+            video.video_key = task['video_key']
+            video.system = task['system']
+            video.platform = task['platform']
+            video.platform_type =  task['platform_type']
+            video.title = title
+            video.url =  task['url']
+            video.views = views
+            video.author = author
+            video.keywords = keywords
+            video.short_description = shortDescription
+            video.length_seconds = lengthSeconds
+            video.language_code = language_code
+            video.progressive_formats = progressive_formats
+            video.adaptive_formats = adaptive_formats
+            video.is_translatable = is_translatable
+            video.video_info = str(vi.vid_info)
+            
+            db.session.add(video)
+            db.session.commit()
+            self.log.status_log(f"Created Video Info: task_id {task['id']} video_key: {task['video_key']}")
+
+        except Exception as e:
+            self.log.error_log(f"Error create video info task id: {task['id']} key: {task['video_key']}. Error: {e}")
+            raise e
