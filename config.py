@@ -16,7 +16,6 @@ class Config(object):
     DB_SERVER = SERVER
     DB_PORT = '5432'
     DB_NAME = 'postgres'
-    #print(f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_SERVER}:{DB_PORT}/{DB_NAME}")
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_SERVER}:{DB_PORT}/{DB_NAME}" 
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -32,4 +31,7 @@ class Config(object):
 
     ELASTICSEARCH_SERVER = os.environ.get('ELASTICSEARCH_SERVER') or SERVER
     ELASTICSEARCH_PORT = 9200
-    ELASTICSEARCH_URL = os.environ.get('ELASTICSEARCH_URL') or f"http://{ELASTICSEARCH_SERVER}:{ELASTICSEARCH_PORT}"
+    #ELASTICSEARCH_URL = os.environ.get('ELASTICSEARCH_URL') or f"http://{ELASTICSEARCH_SERVER}:{ELASTICSEARCH_PORT}"
+    ELASTICSEARCH_URL = ''
+
+    PATH_DOWNLOAD = basedir + "/downloads/youtube"

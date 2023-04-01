@@ -78,6 +78,13 @@ class PaginatedAPIMixin(object):
         }
         return data
 
+    @staticmethod
+    def to_collection_short_dict(query):
+
+        data = {'items': [item.to_dict() for item in query]}
+
+        return data
+
 followers = db.Table(
     'followers',
     db.Column('follower_id', db.Integer, db.ForeignKey('user.id')),
@@ -91,6 +98,7 @@ class User(PaginatedAPIMixin, UserMixin, db.Model):
     password_hash = db.Column(db.String(128))
     posts = db.relationship('Post', backref='author', lazy='dynamic')
     about_me = db.Column(db.String(140))
+    external_user_id = db.Column(db.Integer)
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
     followed = db.relationship(
         'User', secondary=followers,
@@ -152,6 +160,7 @@ class User(PaginatedAPIMixin, UserMixin, db.Model):
             'username': self.username,
             'last_seen': self.last_seen.isoformat() + 'Z',
             'about_me': self.about_me,
+            'external_user_id': self.external_user_id,
             'post_count': self.posts.count(),
             'follower_count': self.followers.count(),
             'followed_count': self.followed.count(),
@@ -167,7 +176,7 @@ class User(PaginatedAPIMixin, UserMixin, db.Model):
         return data
     
     def from_dict(self, data, new_user=False):
-        for field in ['username', 'email', 'about_me']:
+        for field in ['username', 'email', 'about_me', 'external_user_id']:
             if field in data:
                 setattr(self, field, data[field])
         if new_user and 'password' in data:
@@ -185,15 +194,46 @@ class Post(SearchableMixin, db.Model):
         return '<Post {}>'.format(self.body)
 
 
-class Task(SearchableMixin, db.Model):
-    __searchable__ = ['body']
+class Task(PaginatedAPIMixin, SearchableMixin, db.Model):
+    __searchable__ = ['caption']
     id = db.Column(db.Integer, primary_key=True)
     created = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    system = db.Column(db.String(100))
+    platform = db.Column(db.String(100))
     caption = db.Column(db.String(100))
     url = db.Column(db.String(500))
+    reaction = db.Column(db.Integer)
     status = db.Column(db.Integer)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     language = db.Column(db.String(5))
+    video_key = db.Column(db.String(11))
 
     def __repr__(self):
-        return '<Post {}>'.format(self.body)
+        return '<Task - id:{}| userId:{} | system:{} | platform:{} | caption:{} | reaction:{} | video_key{}>'.format(self.id, self.user_id, self.system, self.platform, self.caption, self.reaction, self.video_key)
+    
+    def to_dict(self, flag=False):
+        data = {
+            'id': self.id,
+            'created': self.created.isoformat() + 'Z',
+            'system': self.system,
+            'platform': self.platform,
+            'caption': self.caption,
+            'url': self.url,
+            'reaction': self.reaction,
+            'status': self.status,
+            'user_id': self.user_id,
+            'language': self.language,
+            'video_key': self.video_key,
+            '_links': {
+                'self': url_for('api.get_task', id=self.id),
+                'user': url_for('api.get_user', id=self.user_id)
+            }
+        }
+        return data
+    
+    def from_dict(self, data, new_task=False):
+        for field in ['system', 'platform', 'caption', 'url', 'reaction', 'status', 'user_id', 'language', 'video_key']:
+            if field in data:
+                setattr(self, field, data[field])
+        if new_task and 'status'not in data:
+            self.status = 0

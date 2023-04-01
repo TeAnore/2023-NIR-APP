@@ -1,4 +1,3 @@
-import json
 import requests
 from flask import current_app
 from flask_babel import _
