@@ -56,7 +56,8 @@ class Service():
         if platform.lower() == 'youtube':
             pattern_web = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(watch){1}\?v{1}\={1}(\w|\d|\S){11}$")
             pattern_mobile = re.compile("^(https){1}\:(\/){2}(youtu){1}\.(be){1}\/(\w|\d|\S){11}$")
-        if pattern_web.match(url.lower()) or pattern_mobile.match(url.lower()): 
+            pattern_shorts = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(shorts){1}\/(\w|\d|\S){11}$")
+        if pattern_web.match(url.lower()) or pattern_mobile.match(url.lower()) or pattern_shorts.match(url.lower()): 
             return True
         else:
             return False
@@ -65,7 +66,8 @@ class Service():
 
         for task in tasks['items']:
             self.log.status_log(f"Process task: {task}")
-            if self.check_platform(task['platform'], task['url']):    
+            self.log.msg_log(f"Check platform: {self.check_platform(task['platform'], task['url'])}")
+            if self.check_platform(task['platform'], task['url']):
                 video = YouTube(task['url'])
                 title = video.title
                 views = video.views
@@ -80,7 +82,7 @@ class Service():
                         try:
                             video.streams.filter(progressive="True").get_highest_resolution().download(output_path=current_app.config['PATH_DOWNLOAD'])
                         except Exception as err:
-                            task_entity.from_dict({"status":-2})
+                            task_entity.from_dict({"status":3})
                             db.session.commit() 
                             self.log.error_log(f"Error downlod video: {err}")
                             raise err

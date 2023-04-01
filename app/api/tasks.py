@@ -1,3 +1,4 @@
+import json
 from app import db
 from app.service import logic
 from app.models import User, Task
@@ -87,33 +88,22 @@ def run_tasks():
     response.status_code = 200
     return response
 
-# Need Fix
 @bp.route('/tasks/set-key', methods=['POST'])
 def set_key():
     log.status_log(f"Try set video keys")
     data = request.get_json() or {}
 
-    #task = Task()
-    #try:
-    #    tasks = Task.to_collection_short_dict(Task.query.filter_by(status=2))
-    #except Exception as e:
-    #    return bad_request(f"Error set video keys: {e}")
-    
-    #log.msg_log(f"Tasks {tasks}")
-    #service = logic.Service()
-    #service.get_video_from_youtube(tasks)
-    for t in Task.query.filter_by().all():
-        task = Task()
-        log.msg_log(f"T {t}")
-        #log.msg_log(f"Key {t['url'][-11:]}")
-        tmp = t.to_dict()
-        log.msg_log(f"T {tmp}")
-        #u = t['url']
+    tasks = Task.to_collection_short_dict(Task.query.all())
 
-        t['video_key'] = tmp['url'][-11:]
-        log.msg_log(f"Key {task['video_key']}")
-        task.from_dict(t, new_task=False)
-        db.session.commit()
+    for t in tasks['items']:
+        if t['video_key']: 
+            task = Task()
+            task = Task.query.get(t['id'])
+
+            video_key = {'video_key':str(t['url'][-11:])}
+            
+            task.from_dict(video_key, new_task=False)
+            db.session.commit()
 
     log.status_log(f"Task coplited!")
     response = jsonify("Task coplited!")

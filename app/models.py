@@ -235,5 +235,5 @@ class Task(PaginatedAPIMixin, SearchableMixin, db.Model):
         for field in ['system', 'platform', 'caption', 'url', 'reaction', 'status', 'user_id', 'language', 'video_key']:
             if field in data:
                 setattr(self, field, data[field])
-        if new_task and 'status'not in data:
+        if new_task and 'status' not in data:
             self.status = 0
