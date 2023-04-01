@@ -3,7 +3,7 @@ import re
 from pytube import YouTube
 
 from app import db
-from app.models import Task
+from app.models import User, Task, Video
 from app.logger import Logger
 from flask import current_app
 
@@ -61,6 +61,22 @@ class Service():
             return True
         else:
             return False
+    
+    def get_platform_type(self, platform, url):
+        if platform.lower() == 'youtube':
+            pattern_web = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(watch){1}\?v{1}\={1}(\w|\d|\S){11}$")
+            pattern_mobile = re.compile("^(https){1}\:(\/){2}(youtu){1}\.(be){1}\/(\w|\d|\S){11}$")
+            pattern_shorts = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(shorts){1}\/(\w|\d|\S){11}$")
+            if pattern_web.match(url.lower()):
+                return 'web'
+            elif pattern_mobile.match(url.lower()):
+                return 'mobile'
+            elif pattern_shorts.match(url.lower()):
+                return 'shorts'
+            else:
+                return "unknown youtube"
+        else:
+            return f"unknown {platform.lower()}"
 
     def get_video_from_youtube(self, tasks):
 
@@ -100,3 +116,6 @@ class Service():
                 else:
                     task_entity.from_dict({"status":1})
                     db.session.commit()
+
+    def get_video_info(self, video):
+        pass

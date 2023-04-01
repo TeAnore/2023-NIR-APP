@@ -27,7 +27,7 @@ class Config(object):
     ADMINS = ['your-email@example.com']
     LANGUAGES = ['en', 'ru']
     MS_TRANSLATOR_KEY = os.environ.get('MS_TRANSLATOR_KEY')
-    POSTS_PER_PAGE = 25
+    TASKS_PER_PAGE = 100
 
     ELASTICSEARCH_SERVER = os.environ.get('ELASTICSEARCH_SERVER') or SERVER
     ELASTICSEARCH_PORT = 9200

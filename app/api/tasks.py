@@ -30,15 +30,17 @@ def create_task():
         return bad_request('must include user_id, url and reaction fields')
 
     try:
+        service = logic.Service()
         task = Task()
         user = User()
-        user_id = int(data['user_id'])
+        user_id = str(data['user_id'])
         print(f"User Data Id: {data['user_id']}")
         user = User.query.filter_by(external_user_id=user_id).first()
         user.to_dict(user)
-        print(f"User after select: {user}")
-        print(f"User Id : {user.id}")
+        #print(f"User after select: {user}")
+        #print(f"User Id : {user.id}")
         data['user_id'] = user.id
+        data['platform_type'] = service.get_platform_type(data['platform'], data['url'])
         if user:
             task.from_dict(data, new_task=True)
             db.session.add(task)
@@ -48,7 +50,7 @@ def create_task():
             response.headers['Location'] = url_for('api.get_task', id=task.id)
 
             return response
-        
+            
         else:
             return not_found(f"User with id: {user_id} not found.")
 

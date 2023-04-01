@@ -6,7 +6,7 @@ from langdetect import detect, LangDetectException
 from app import db
 from app.main import bp
 from app.main.forms import EditProfileForm, EmptyForm, PostForm, SearchForm
-from app.models import User, Post
+from app.models import User, Task
 from app.translate import translate
 
 
@@ -22,43 +22,52 @@ def before_request():
 @bp.route('/index', methods=['GET', 'POST'])
 @login_required
 def index():
+    
     form = PostForm()
     if form.validate_on_submit():
-        try:
-            language = detect(form.post.data)
-        except LangDetectException:
-            language = ''
-        post = Post(body=form.post.data, author=current_user, language=language)
-        db.session.add(post)
+        task = Task(author=current_user,
+                    system = 'Web',
+                    platform = '',
+                    platform_type = '',
+                    caption = '',
+                    url = '',
+                    video_key = '',
+                    reaction = ''
+        )
+
+        db.session.add(task)
         db.session.commit()
         flash(_('Your post is now live!'))
         return redirect(url_for('main.index'))
-    page = request.args.get('page', 1, type=int)
-    posts = current_user.followed_posts().paginate(
-        page=page, per_page=current_app.config['POSTS_PER_PAGE'],
-        error_out=False)
-    next_url = url_for('main.index', page=posts.next_num) \
-        if posts.has_next else None
-    prev_url = url_for('main.index', page=posts.prev_num) \
-        if posts.has_prev else None
-    return render_template('index.html', title=_('Home'), form=form,
-                           posts=posts.items, next_url=next_url,
-                           prev_url=prev_url)
 
+    page = request.args.get('page', 1, type=int)
+
+    tasks = current_user.created_tasks().paginate(page=page, per_page=current_app.config['TASKS_PER_PAGE'], error_out=False)
+
+    next_url = url_for('main.index', page=tasks.next_num) if tasks.has_next else None
+    prev_url = url_for('main.index', page=tasks.prev_num) if tasks.has_prev else None
+
+    return render_template( 'index.html',
+                            title=_('Home'),
+                            form=form,
+                            tasks=tasks.items,
+                            next_url=next_url,
+                            prev_url=prev_url
+    )
 
 @bp.route('/explore')
 @login_required
 def explore():
     page = request.args.get('page', 1, type=int)
-    posts = Post.query.order_by(Post.timestamp.desc()).paginate(
-        page=page, per_page=current_app.config['POSTS_PER_PAGE'],
+    tasks = Task.query.order_by(Task.created.desc()).paginate(
+        page=page, per_page=current_app.config['TASKS_PER_PAGE'],
         error_out=False)
-    next_url = url_for('main.explore', page=posts.next_num) \
-        if posts.has_next else None
-    prev_url = url_for('main.explore', page=posts.prev_num) \
-        if posts.has_prev else None
+    next_url = url_for('main.explore', page=tasks.next_num) \
+        if tasks.has_next else None
+    prev_url = url_for('main.explore', page=tasks.prev_num) \
+        if tasks.has_prev else None
     return render_template('index.html', title=_('Explore'),
-                           posts=posts.items, next_url=next_url,
+                           tasks=tasks.items, next_url=next_url,
                            prev_url=prev_url)
 
 
@@ -67,15 +76,15 @@ def explore():
 def user(username):
     user = User.query.filter_by(username=username).first_or_404()
     page = request.args.get('page', 1, type=int)
-    posts = user.posts.order_by(Post.timestamp.desc()).paginate(
-        page=page, per_page=current_app.config['POSTS_PER_PAGE'],
+    tasks = user.tasks.order_by(Task.created.desc()).paginate(
+        page=page, per_page=current_app.config['TASKS_PER_PAGE'],
         error_out=False)
     next_url = url_for('main.user', username=user.username,
-                       page=posts.next_num) if posts.has_next else None
+                       page=tasks.next_num) if tasks.has_next else None
     prev_url = url_for('main.user', username=user.username,
-                       page=posts.prev_num) if posts.has_prev else None
+                       page=tasks.prev_num) if tasks.has_prev else None
     form = EmptyForm()
-    return render_template('user.html', user=user, posts=posts.items,
+    return render_template('user.html', user=user, tasks=tasks.items,
                            next_url=next_url, prev_url=prev_url, form=form)
 
 
@@ -157,11 +166,11 @@ def search():
     if not g.search_form.validate():
         return redirect(url_for('main.explore'))
     page = request.args.get('page', 1, type=int)
-    posts, total = Post.search(g.search_form.q.data, page,
-                               current_app.config['POSTS_PER_PAGE'])
+    tasks, total = Task.search(g.search_form.q.data, page,
+                               current_app.config['TASKS_PER_PAGE'])
     next_url = url_for('main.search', q=g.search_form.q.data, page=page + 1) \
-        if total > page * current_app.config['POSTS_PER_PAGE'] else None
+        if total > page * current_app.config['TASKS_PER_PAGE'] else None
     prev_url = url_for('main.search', q=g.search_form.q.data, page=page - 1) \
         if page > 1 else None
-    return render_template('search.html', title=_('Search'), posts=posts,
+    return render_template('search.html', title=_('Search'), tasks=tasks,
                            next_url=next_url, prev_url=prev_url)
