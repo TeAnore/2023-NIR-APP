@@ -65,7 +65,7 @@ class Service():
             return True
         else:
             return False
-    
+
     def get_platform_type(self, platform, url):
         if platform.lower() == 'youtube':
             pattern_web = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(watch){1}\?v{1}\={1}(\w|\d|\S){11}$")
