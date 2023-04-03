@@ -29,7 +29,7 @@ def get_user(id):
         user=User.query.filter_by(id=id).first()
         return jsonify(user.to_dict(user))
     
-    external_user_id = id
+    external_user_id = str(id)
     if User.query.filter_by(external_user_id=external_user_id).first():
         user=User.query.filter_by(external_user_id=external_user_id).first()
         return jsonify(user.to_dict(user))
