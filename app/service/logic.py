@@ -57,7 +57,11 @@ class Service():
             pattern_web = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(watch){1}\?v{1}\={1}(\w|\d|\S){11}$")
             pattern_mobile = re.compile("^(https){1}\:(\/){2}(youtu){1}\.(be){1}\/(\w|\d|\S){11}$")
             pattern_shorts = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(shorts){1}\/(\w|\d|\S){11}$")
-        if pattern_web.match(url.lower()) or pattern_mobile.match(url.lower()) or pattern_shorts.match(url.lower()): 
+            pattern_live = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(live){1}\/(\w|\d|\S){11}$")
+        if pattern_web.match(url.lower()) \
+        or pattern_mobile.match(url.lower())\
+        or pattern_shorts.match(url.lower())\
+        or pattern_live.match(url.lower()): 
             return True
         else:
             return False
@@ -67,12 +71,15 @@ class Service():
             pattern_web = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(watch){1}\?v{1}\={1}(\w|\d|\S){11}$")
             pattern_mobile = re.compile("^(https){1}\:(\/){2}(youtu){1}\.(be){1}\/(\w|\d|\S){11}$")
             pattern_shorts = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(shorts){1}\/(\w|\d|\S){11}$")
+            pattern_live = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(live){1}\/(\w|\d|\S){11}$")
             if pattern_web.match(url.lower()):
                 return 'web'
             elif pattern_mobile.match(url.lower()):
                 return 'mobile'
             elif pattern_shorts.match(url.lower()):
                 return 'shorts'
+            elif pattern_live.match(url.lower()):
+                return 'live'
             else:
                 return "unknown youtube"
         else:
