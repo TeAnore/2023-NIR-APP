@@ -238,7 +238,7 @@ class Video(PaginatedAPIMixin, BaseModel):
 
 class Transcript(PaginatedAPIMixin, BaseModel):
     __tablename__ = 'transcript'
-    video_key = db.Column(db.String(11), unique=True, nullable=False, index=True)
+    video_key = db.Column(db.String(11), nullable=False, index=True)
     language =  db.Column(db.String(100))
     language_code =  db.Column(db.String(100))
     is_generated = db.Column(db.Boolean)
