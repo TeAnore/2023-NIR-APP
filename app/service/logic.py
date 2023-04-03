@@ -1,9 +1,10 @@
 import re
 import json
 from pytube import YouTube
+from youtube_transcript_api import YouTubeTranscriptApi
 
 from app import db
-from app.models import User, Task, Video
+from app.models import User, Task, Video, Transcript
 from app.logger import Logger
 from flask import current_app
 
@@ -104,27 +105,40 @@ class Service():
 
                             try:
                                 self.log.msg_log(f"Get video info task: {task['id']} start")
+
+                                ## DEVELOP FLAG
+                                needDownload = False
+                                self.log.dev_log(f"DEV Need Download: {task['id']} flag: {needDownload}")
+
                                 #self.log.dev_log(f"Video info task: {task['id']} info: {video.vid_info}")
                                 #self.log.msg_log(f"Available task: {task['id']} progressive resolution: {video.streams.filter(progressive='True')}")
                                 #self.log.msg_log(f"Available task: {task['id']} adaptive resolution: {video.streams.filter(adaptive='True')}")
 
                                 try:
                                     self.create_video_info(task, video)
-                                    needDownload = False
                                     task_entity.from_dict({"status":2})
                                     db.session.commit()
 
                                 except Exception as e:
-                                    self.log.error_log(f"Error Create Video Info: {e}")
+                                    self.log.error_log(f"Error Video Info: {e}")
                                     raise e
                                 
+                                try:
+                                    self.create_transcript_info(task)
+                                    task_entity.from_dict({"status":3})
+                                    db.session.commit()
+
+                                except Exception as e:
+                                    self.log.error_log(f"Error Transcript Info: {e}")
+                                    raise e
+
                                 if needDownload:
                                     self.log.msg_log(f"Download video task: {task['id']} start")
 
                                     try:
                                         video.streams.filter(progressive="True").get_highest_resolution().download(output_path=current_app.config['PATH_DOWNLOAD'])
                                     except Exception as e:
-                                        task_entity.from_dict({"status":3})
+                                        task_entity.from_dict({"status":4})
                                         db.session.commit() 
                                         self.log.error_log(f"Downlod video: {task['id']}. Error: {e}")
                                         raise e
@@ -251,3 +265,32 @@ class Service():
         except Exception as e:
             self.log.error_log(f"Error create video info task id: {task['id']} key: {task['video_key']}. Error: {e}")
             raise e
+
+    def create_transcript_info(self, task):
+        try:
+            self.log.status_log(f"Transcript info task id: {task['id']} key: {task['video_key']}")
+            transcript_list = YouTubeTranscriptApi.list_transcripts(task['video_key'])
+            for transcript in transcript_list:
+                self.log.dev_log(f"Transcript list key: {transcript}")
+
+            t = Transcript()
+            t.video_key = task['video_key']
+
+            t.language = ''
+            t.language_code = ''
+            t.is_generated = ''
+            t.is_translatable = ''
+            t.translation_languages = ''
+            t.auto_subtitles = ''
+            t.manual_subtitles = ''
+
+            t.transcript_info = str(transcript_list)
+
+            db.session.add(t)
+            db.session.commit()
+            self.log.status_log(f"Created Transcript Info: task_id {task['id']} video_key: {task['video_key']}")
+
+        except Exception as e:
+            self.log.error_log(f"Transcript info task id: {task['id']} key: {task['video_key']}. Error: {e}")
+            raise e
+

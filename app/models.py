@@ -17,8 +17,8 @@ def load_user(id):
 class BaseModel(db.Model):
     __abstract__ = True
 
-    id = db.Column(db.Integer, nullable=False, unique=True, primary_key=True, autoincrement=True)
-    created = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    id = db.Column(db.Integer, nullable=False, unique=True, primary_key=True, autoincrement=True, index=True)
+    created = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     def __repr__(self):
@@ -59,8 +59,8 @@ class User(PaginatedAPIMixin, UserMixin, BaseModel):
     __tablename__ = 'user'
 
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
-    external_user_id = db.Column(db.String(255), unique=True, nullable=True)
-    username = db.Column(db.String(255), nullable=False)
+    external_user_id = db.Column(db.String(255), unique=True, nullable=True, index=True)
+    username = db.Column(db.String(255), nullable=False, index=True)
     first_name = db.Column(db.String(255), nullable=False)
     last_name = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), index=True, unique=True)
@@ -105,7 +105,14 @@ class User(PaginatedAPIMixin, UserMixin, BaseModel):
         return data
     
     def from_dict(self, data, new_user=False):
-        for field in ['external_user_id', 'username', 'first_name', 'last_name', 'email', 'description']:
+        for field in [
+                        'external_user_id',
+                        'username',
+                        'first_name',
+                        'last_name',
+                        'email',
+                        'description'
+        ]:
             if field in data:
                 setattr(self, field, data[field])
         if new_user and 'password' in data:
@@ -118,13 +125,13 @@ class User(PaginatedAPIMixin, UserMixin, BaseModel):
 class Task(PaginatedAPIMixin, BaseModel):
     __tablename__ = 'task'
 
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
     system = db.Column(db.String(100))
     platform = db.Column(db.String(100))
     platform_type = db.Column(db.String(100))
     caption = db.Column(db.String(100))
     url = db.Column(db.String(500))
-    video_key = db.Column(db.String(11))
+    video_key = db.Column(db.String(11), nullable=False, index=True)
     reaction = db.Column(db.Integer)
     status = db.Column(db.Integer)
 
@@ -148,7 +155,17 @@ class Task(PaginatedAPIMixin, BaseModel):
         return data
     
     def from_dict(self, data, new_task=False):
-        for field in ['user_id', 'system', 'platform', 'platform_type', 'caption', 'url', 'video_key', 'reaction', 'status']:
+        for field in [  
+                        'user_id',
+                        'system',
+                        'platform',
+                        'platform_type',
+                        'caption',
+                        'url',
+                        'video_key',
+                        'reaction',
+                        'status'
+        ]:
             if field in data:
                 setattr(self, field, data[field])
         if new_task or 'status' not in data:
@@ -156,7 +173,7 @@ class Task(PaginatedAPIMixin, BaseModel):
 
 class Video(PaginatedAPIMixin, BaseModel):
     __tablename__ = 'video'
-    video_key = db.Column(db.String(100), unique=True, nullable=True)
+    video_key = db.Column(db.String(11), unique=True, nullable=False, index=True)
     system = db.Column(db.String(100))
     platform = db.Column(db.String(100))
     platform_type = db.Column(db.String(100))
@@ -214,6 +231,49 @@ class Video(PaginatedAPIMixin, BaseModel):
                         'adaptive_formats',
                         'is_translatable',
                         'video_info'
+        ]:
+            if field in data:
+                setattr(self, field, data[field])
+
+
+class Transcript(PaginatedAPIMixin, BaseModel):
+    __tablename__ = 'transcript'
+    video_key = db.Column(db.String(11), unique=True, nullable=False, index=True)
+    language =  db.Column(db.String(100))
+    language_code =  db.Column(db.String(100))
+    is_generated = db.Column(db.Boolean)
+    is_translatable = db.Column(db.Boolean)
+    translation_languages = db.Column(db.Text)
+    auto_subtitles = db.Column(db.Text)
+    manual_subtitles = db.Column(db.Text)
+    transcript_info = db.Column(db.Text)
+
+    def to_dict(self, flag=False):
+        data = {
+            'id': self.id,
+            'video_key': self.video_key,
+            'language': self.language,
+            'language_code': self.language_code,
+            'is_generated': self.is_generated,
+            'is_translatable': self.is_translatable,
+            'translation_languages': self.translation_languages,
+            'auto_subtitles': self.auto_subtitles,
+            'manual_subtitles': self.manual_subtitles,
+            'transcript_info': self.transcript_info
+        }
+        return data
+    
+    def from_dict(self, data, new_task=False):
+        for field in [
+                        'video_key',
+                        'language',
+                        'language_code',
+                        'is_generated',
+                        'is_translatable',
+                        'translation_languages',
+                        'auto_subtitles',
+                        'manual_subtitles',
+                        'transcript_info'
         ]:
             if field in data:
                 setattr(self, field, data[field])
