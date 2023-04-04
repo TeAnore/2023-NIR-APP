@@ -359,7 +359,6 @@ class Service():
                 language_code  исходный язык видео
                 length_seconds  длинна видео в секундах
                 '''
-
                 columns_video_info = [
                     'id',
                     'user_id',
@@ -376,22 +375,13 @@ class Service():
                     'length_seconds'
                 ]
 
-                #row_idx = 0
                 rows_video_info = []
                 tasks = Task.to_collection_short_dict(Task.query.order_by('created').all())
-                    
-                #self.log.dev_log(f"tasks['items'] len {len(tasks['items'])}")
-                #self.log.dev_log(f"row_idx {row_idx}")
+
                 id = 0
                 for row_idx in range(0, len(tasks['items']) -1 ):
                     id += 1
 
-                    #self.log.dev_log(f"tasks['items']: {tasks['items'][row_idx]['id']}")
-                    task = Task()
-                    task = Task.query.get(tasks['items'][row_idx]['id'])
-                    #self.log.dev_log(f"Task: {task}")
-                    
-                    
                     user_id = tasks['items'][row_idx]['user_id']
 
                     if tasks['items'][row_idx]['reaction'] == 100:
@@ -402,8 +392,6 @@ class Service():
                     video_key = tasks['items'][row_idx]['video_key']
                     platform = tasks['items'][row_idx]['platform']
                     platform_type = tasks['items'][row_idx]['platform_type']
-        
-                    #self.log.dev_log(f"tasks['items'] video_key : {tasks['items'][row_idx]['video_key']}")
 
                     video = Video()
                     video = Video.query.filter_by(video_key=video_key).first()
@@ -411,8 +399,6 @@ class Service():
                     if not video:
                         pass
                     else:
-                        #self.log.dev_log(f"Video: {video}")
-
                         title = video.title
                         views = video.views
                         author = video.author
@@ -444,7 +430,6 @@ class Service():
                 self.log.status_log(f"Generate Data Frame {type}: End")
                 
             elif type == 'ti':
-
                 '''
                 Датафрейм с субтитрами:
                 video_key  Уникальный ключ Видео на YouTube
@@ -489,15 +474,7 @@ class Service():
             datetime_string = f'{datetime.now():%Y-%m-%d_%H-%M-%S%z}'
             filename = f"{current_app.config['PATH_DUMPS']}\\{datetime_string}_{type}.csv"
             df.to_csv(filename)
-            '''
-            with open(f"{filename}", "w") as dumpfile:
-                json.dump(
-                    df,
-                    dumpfile, 
-                    indent=4
-                    #,separators=(',',': ')
-                )
-            '''
+
             return df.to_json(orient="records")
         
         except Exception as e:
