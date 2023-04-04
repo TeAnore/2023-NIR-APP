@@ -3,14 +3,13 @@ config.py
 
 # Directories
 __pycache__/
-__pycache__/
 app/__pycache__/
 venv/
 migrations/
 source/
 logs/
 translations/
-
+dumps/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

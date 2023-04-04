@@ -35,3 +35,4 @@ class Config(object):
     ELASTICSEARCH_URL = ''
 
     PATH_DOWNLOAD = basedir + "/downloads/youtube"
+    PATH_DUMPS = basedir + "\dumps"

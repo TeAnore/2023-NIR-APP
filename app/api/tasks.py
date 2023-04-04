@@ -8,6 +8,7 @@ from flask import request, jsonify, url_for
 from psycopg2.errors import IntegrityConstraintViolation, RestrictViolation, NotNullViolation, ForeignKeyViolation, UniqueViolation, CheckViolation, ExclusionViolation, InvalidCursorState
 
 log = Logger()
+service = logic.Service()
 
 @bp.route('/tasks/<int:id>', methods=['GET'])
 def get_task(id):
@@ -29,7 +30,6 @@ def create_task():
         return bad_request('must include user_id, url and reaction fields')
 
     try:
-        service = logic.Service()
         task = Task()
         user = User()
         user_id = str(data['user_id'])
@@ -86,7 +86,6 @@ def run_tasks():
 
     tasks = Task.to_collection_short_dict(Task.query.filter_by(status=status).order_by('created'))
 
-    service = logic.Service()
     service.get_video_from_youtube(tasks)
     
     log.status_log(f"Task coplited!")
@@ -101,7 +100,6 @@ def run_task(id):
 
     tasks = Task.to_collection_short_dict(Task.query.filter_by(id=id))
 
-    service = logic.Service()
     service.get_video_from_youtube(tasks)
     
     log.status_log(f"Task coplited!")
@@ -126,7 +124,7 @@ def set_key():
             task.from_dict(video_key, new_task=False)
             db.session.commit()
 
-    log.status_log(f"Task coplited!")
-    response = jsonify("Task coplited!")
+    log.status_log(f"Task complited!")
+    response = jsonify("Task complited!")
     response.status_code = 200
     return response
