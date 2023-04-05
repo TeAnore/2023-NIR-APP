@@ -120,10 +120,6 @@ class Service():
                                 needDownload = False
                                 self.log.dev_log(f"DEV Need Download: {task['id']} flag: {needDownload}")
 
-                                #self.log.dev_log(f"Video info task: {task['id']} info: {video.vid_info}")
-                                #self.log.msg_log(f"Available task: {task['id']} progressive resolution: {video.streams.filter(progressive='True')}")
-                                #self.log.msg_log(f"Available task: {task['id']} adaptive resolution: {video.streams.filter(adaptive='True')}")
-
                                 try:
                                     self.create_video_info(task, video)
                                     task_entity.from_dict({"status":2})
@@ -218,11 +214,8 @@ class Service():
                 details key: isUnpluggedCorpus
                 details key: isLiveContent
                 '''
-                #for key in details: self.log.dev_log(f"details key: {key}")
-
 
                 details = vi.vid_info.get('videoDetails', {})
-                #details = vi.vid_info['videoDetails']
                 title = details.get('title', '')
                 views = details.get('viewCount', 0)
                 author = details.get('author', '')
@@ -235,7 +228,6 @@ class Service():
                 playerCaptionsTracklistRenderer = captions.get('playerCaptionsTracklistRenderer', {})
                 captionTracks = playerCaptionsTracklistRenderer.get('captionTracks', {})
 
-                #captionTracks = vi.vid_info['captions']['playerCaptionsTracklistRenderer']['captionTracks']
                 if len(captionTracks) > 0:
                     language_code = captionTracks[0].get('languageCode', '')
                     is_translatable = captionTracks[0].get('isTranslatable', False)

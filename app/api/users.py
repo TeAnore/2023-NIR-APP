@@ -63,6 +63,18 @@ def create_user():
     if 'user_id' in data:
         data['external_user_id'] = data['user_id']
 
+    firstName = data.get('first_name', '')
+    lastName = data.get('last_name', '')
+    if firstName:
+        data['first_name'] = firstName
+    else:
+        data['first_name'] = data['username']
+
+    if lastName:
+        data['last_name'] = lastName
+    else:
+        data['last_name'] = data['username']
+
     user = User()
     user.from_dict(data, new_user=True)
     db.session.add(user)
