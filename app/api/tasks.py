@@ -36,19 +36,20 @@ def create_task():
         user = User.query.filter_by(external_user_id=user_id).first()
         user.to_dict(user)
         data['user_id'] = user.id
-        data['platform_type'] = service.get_platform_type(data['platform'], data['url'])
-
         if user:
+
             task = Task.query.filter_by(user_id=data['user_id'], url=data['url']).first()
+
             if task:
                 task.from_dict(data, new_task=False)
                 db.session.commit()
-                log.msg_log(f"Update user_id:{user.id} task_id: {task.id}")
+                log.msg_log(f"Update user_id: {user.id} task_id: {task.id}")
             else:
+                data['platform_type'] = service.get_platform_type(data['platform'], data['url'])
                 task.from_dict(data, new_task=True)
                 db.session.add(task)
                 db.session.commit()
-                log.msg_log(f"Create user_id:{user.id} task_id: {task.id}")
+                log.msg_log(f"Create user_id: {user.id} task_id: {task.id}")
 
             response = jsonify(task.to_dict())
             response.status_code = 201

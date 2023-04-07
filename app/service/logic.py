@@ -156,29 +156,27 @@ class Service():
                             task_entity.from_dict({"status":2})
                             db.session.commit() 
                             self.log.msg_log(f"Video info task: {task['id']} exist")
-
-                        cnt_ti = Transcript.query.filter_by(video_key=task['video_key']).count()
-                        if cnt_ti == 0:
-                            try:
-                                self.create_transcript_info(task)
-                                task_entity.from_dict({"status":4})
-                                db.session.commit()
-                            
-                            except Exception as e:
-                                task_entity.from_dict({"status":1})
-                                db.session.commit()
-                                self.log.error_log(f"Error Transcript Info: {e}")
-                                pass
-                        else:
-                            task_entity.from_dict({"status":4})
-                            db.session.commit() 
-                            self.log.msg_log(f"Transcript Info task: {task['id']} exist")
-
                     else:
                         task_entity.from_dict({"status":1})
                         db.session.commit()
                         self.log.error_log(f"Check task: {task['id']} playability status: False")
-
+                    
+                    cnt_ti = Transcript.query.filter_by(video_key=task['video_key']).count()
+                    if cnt_ti == 0:
+                        try:
+                            self.create_transcript_info(task)
+                            task_entity.from_dict({"status":4})
+                            db.session.commit()
+                        except Exception as e:
+                            task_entity.from_dict({"status":1})
+                            db.session.commit()
+                            self.log.error_log(f"Error Transcript Info: {e}")
+                            pass
+                    else:
+                        task_entity.from_dict({"status":4})
+                        db.session.commit() 
+                        self.log.msg_log(f"Transcript Info task: {task['id']} exist")
+                        
                 else:
                     task_entity.from_dict({"status":1})
                     db.session.commit()
