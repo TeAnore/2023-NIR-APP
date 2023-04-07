@@ -134,6 +134,9 @@ class Task(PaginatedAPIMixin, BaseModel):
     video_key = db.Column(db.String(11), nullable=False, index=True)
     reaction = db.Column(db.Integer)
     status = db.Column(db.Integer)
+    status_info = db.Column(db.Text)
+    is_need_download = db.Column(db.Boolean)
+    is_downloaded = db.Column(db.Boolean)
 
     def to_dict(self, flag=False):
         data = {
@@ -147,10 +150,9 @@ class Task(PaginatedAPIMixin, BaseModel):
             'video_key': self.video_key,
             'reaction': self.reaction,
             'status': self.status,
-            '_links': {
-                'self': url_for('api.get_task', id=self.id),
-                'user': url_for('api.get_user', id=self.user_id)
-            }
+            'status_info': self.status_info,
+            'is_need_download': self.is_need_download,
+            'is_downloaded': self.is_downloaded
         }
         return data
     
@@ -164,12 +166,17 @@ class Task(PaginatedAPIMixin, BaseModel):
                         'url',
                         'video_key',
                         'reaction',
-                        'status'
+                        'status',
+                        'status_info',
+                        'is_need_download',
+                        'is_downloaded'
         ]:
             if field in data:
                 setattr(self, field, data[field])
         if new_task or 'status' not in data:
             self.status = 0
+        if new_task or 'is_need_download' not in data:
+            self.is_need_download = True
 
 class Video(PaginatedAPIMixin, BaseModel):
     __tablename__ = 'video'

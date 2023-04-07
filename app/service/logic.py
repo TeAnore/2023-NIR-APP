@@ -14,6 +14,12 @@ from flask import current_app
 class Service():
     def __init__(self):
         self.log = Logger()
+        self.yt_pattern_web = re.compile("^(https){1}\:(\/){2}w{3}\.(youtube){1}\.(com){1}\/(watch){1}\?v{1}\={1}(\w|\d|\S){11}(.+|)$")
+        self.yt_pattern_mobile = re.compile("^(https){1}\:(\/){2}(youtu){1}\.(be){1}\/(\w|\d|\S){11}$")
+        self.yt_pattern_shorts = re.compile("^(https){1}\:(\/){2}w{3}\.(youtube){1}\.(com){1}\/(shorts){1}\/(\w|\d|\S){11}(.+|)$")
+        self.yt_pattern_live = re.compile("^(https){1}\:(\/){2}w{3}\.(youtube){1}\.(com){1}\/(live){1}\/(\w|\d|\S){11}(.+|)$")
+        self.yt_pattern_m = re.compile("^(https){1}\:(\/){2}(m){1}(\.){1}(youtube){1}(\.){1}(com){1}(\/){1}(watch){1}(\?){1}(v\=){1}(\w|\d|\S){11}(.+|)$")
+        self.yt_pattern_share_shorts = re.compile("^(https){1}\:(\/){2}(youtube){1}\.(com){1}\/(shorts){1}\/(\w|\d|\S){11}(.+|)$")
 
     def check_availability(self, task, info):
         result = True
@@ -23,6 +29,7 @@ class Service():
                 reason = info['reason']
                 self.log.msg_log(f"Check availability task_id: {task['id']} status: {status} - reason: {reason}")
             else:
+                reason = ''
                 self.log.msg_log(f"Check availability task_id: {task['id']} status: {status}")
 
             if status == 'UNPLAYABLE':
@@ -53,134 +60,142 @@ class Service():
             result = False
             pass
         
-        return result
+        return result, status, reason
 
     def check_platform(self, platform, url):
-        if platform.lower() == 'youtube':
-            pattern_web = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(watch){1}\?v{1}\={1}(\w|\d|\S){11}$")
-            pattern_mobile = re.compile("^(https){1}\:(\/){2}(youtu){1}\.(be){1}\/(\w|\d|\S){11}$")
-            pattern_shorts = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(shorts){1}\/(\w|\d|\S){11}$")
-            pattern_live = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(live){1}\/(\w|\d|\S){11}$")
-        if pattern_web.match(url.lower()) \
-        or pattern_mobile.match(url.lower())\
-        or pattern_shorts.match(url.lower())\
-        or pattern_live.match(url.lower()): 
+        if platform.lower() == 'youtube' and\
+        (  self.yt_pattern_web.match(url.lower()) \
+        or self.yt_pattern_mobile.match(url.lower())\
+        or self.yt_pattern_shorts.match(url.lower())\
+        or self.yt_pattern_live.match(url.lower())\
+        or self.yt_pattern_m.match(url.lower())\
+        or self.yt_pattern_share_shorts.match(url.lower())\
+        ):
             return True
         else:
             self.log.dev_log(f"Original URL: {url}")
             return False
 
     def get_platform_type(self, platform, url):
-        if platform.lower() == 'youtube':
-            pattern_web = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(watch){1}\?v{1}\={1}(\w|\d|\S){11}$")
-            pattern_mobile = re.compile("^(https){1}\:(\/){2}(youtu){1}\.(be){1}\/(\w|\d|\S){11}$")
-            pattern_shorts = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(shorts){1}\/(\w|\d|\S){11}$")
-            pattern_live = re.compile("^(https){1}\:(\/){2}w{3}\.(" + platform.lower() + "){1}\.(com){1}\/(live){1}\/(\w|\d|\S){11}$")
-            if pattern_web.match(url.lower()):
+        if platform.lower() == 'youtube' and\
+        (  self.yt_pattern_web.match(url.lower()) \
+        or self.yt_pattern_mobile.match(url.lower())\
+        or self.yt_pattern_shorts.match(url.lower())\
+        or self.yt_pattern_live.match(url.lower())\
+        or self.yt_pattern_m.match(url.lower())\
+        or self.yt_pattern_share_shorts.match(url.lower())\
+        ):
+            if self.yt_pattern_web.match(url.lower()):
                 return 'web'
-            elif pattern_mobile.match(url.lower()):
+            elif self.yt_pattern_mobile.match(url.lower()):
                 return 'mobile'
-            elif pattern_shorts.match(url.lower()):
+            elif self.yt_pattern_m.match(url.lower()):
+                return 'full_mobile'
+            elif self.yt_pattern_shorts.match(url.lower()):
                 return 'shorts'
-            elif pattern_live.match(url.lower()):
+            elif self.yt_pattern_share_shorts.match(url.lower()):
+                return 'share_shorts'
+            elif self.yt_pattern_live.match(url.lower()):
                 return 'live'
             else:
                 return "unknown youtube"
         else:
             return f"unknown {platform.lower()}"
 
+    def change_task_status(self, task, status, status_info=''):
+        data = {}
+        data["status"] = status 
+        data["status_info"] = status_info
+        task.from_dict(data, new_task=False)
+        db.session.commit()
+
     def get_video_from_youtube(self, tasks):
         try:
-            needDownload = True
-
             for task in tasks['items']:
-                self.log.status_log(f"Process task: {task}")
+                l = f"USER_ID: {task['user_id']} TASK ID: {task['id']} VIDEO KEY: {task['video_key']}."
+                self.log.status_log(f"{l} Process Begin")
+                
                 task_entity=Task.query.get(task['id'])
+                needDownload = task['is_need_download']
 
                 if self.check_platform(task['platform'], task['url']):
-                    self.log.msg_log(f"Check task: {task['id']} platform: True")
+                    self.log.msg_log(f"{l} Check Platform: True")
                     try:
                         video = YouTube(task['url'])
                     except Exception as e:
-                        task_entity.from_dict({"status":1})
-                        db.session.commit()
-                        self.log.error_log(f"Error process task id: {task['id']}. Error: {e}")
+                        status_info = f"{l} Video Info. YT-PT Error: {e}"
+                        self.change_task_status(task_entity, 1, status_info)
+                        self.log.error_log(status_info)
                         pass
                     
-                    if self.check_availability(task, video.vid_info['playabilityStatus']):
-
-                        self.log.msg_log(f"Check task: {task['id']} playability status: True")
-
+                    result, status, reason = self.check_availability(task, video.vid_info['playabilityStatus'])
+                    if result:
+                        self.log.msg_log(f"{l} Video Info. Start")
                         cnt_vi = Video.query.filter_by(video_key=task['video_key']).count()
                         if cnt_vi == 0:
-                            self.log.msg_log(f"Video info task: {task['id']} count {cnt_vi}")
-
                             try:
-                                self.log.msg_log(f"Get video info task: {task['id']} start")
-
                                 ## DEVELOP FLAG
                                 needDownload = False
-                                self.log.dev_log(f"DEV Need Download: {task['id']} flag: {needDownload}")
+                                self.log.dev_log(f"{l}Video Info. Need Download: {needDownload} task flag: {task['is_need_download']}")
 
                                 try:
-                                    self.create_video_info(task, video)
-                                    task_entity.from_dict({"status":2})
-                                    db.session.commit()
-
+                                    isSubs = self.create_video_info(task, video)
+                                    self.change_task_status(task_entity,2)
+                                    self.log.msg_log(f"{l} Video Info. Info Comlite")
                                 except Exception as e:
-                                    self.log.error_log(f"Error Video Info: {e}")
+                                    self.log.error_log(f"Info Error: {e}")
                                     raise e
    
                                 if needDownload:
-                                    self.log.msg_log(f"Download video task: {task['id']} start")
-
                                     try:
                                         video.streams.filter(progressive="True").get_highest_resolution().download(output_path=current_app.config['PATH_DOWNLOAD'])
+                                        task_entity.from_dict({"is_downloaded":True})
+                                        db.session.commit()
+                                        self.log.msg_log(f"{l} Video Info. Download Complite")
                                     except Exception as e:
-                                        task_entity.from_dict({"status":3})
-                                        db.session.commit() 
-                                        self.log.error_log(f"Downlod video: {task['id']}. Error: {e}")
+                                        self.log.error_log(f"Download Error: {e}")
                                         raise e
                                 else:
-                                    self.log.msg_log(f"Download video task: {task['id']} not needed")
+                                    self.log.msg_log(f"{l} Video Info. Reason: Download not needed")
 
-                                self.log.msg_log(f"Get video info task: {task['id']} comlite")
+                                self.log.msg_log(f"{l} Video Info. Comlite")
 
                             except Exception as e:
-                                task_entity.from_dict({"status":1})
-                                db.session.commit()
-
-                                self.log.error_log(f"Get video info task: {task['id']}. Error: {e}")
+                                status_info = f"{l} Video Info. Error: {e}"
+                                self.change_task_status(task_entity, 1, status_info)
+                                self.log.error_log(status_info)
                                 pass
                         else:
-                            task_entity.from_dict({"status":2})
-                            db.session.commit() 
-                            self.log.msg_log(f"Video info task: {task['id']} exist")
-                    else:
-                        task_entity.from_dict({"status":1})
-                        db.session.commit()
-                        self.log.error_log(f"Check task: {task['id']} playability status: False")
-                    
-                    cnt_ti = Transcript.query.filter_by(video_key=task['video_key']).count()
-                    if cnt_ti == 0:
-                        try:
-                            self.create_transcript_info(task)
-                            task_entity.from_dict({"status":4})
-                            db.session.commit()
-                        except Exception as e:
-                            task_entity.from_dict({"status":1})
-                            db.session.commit()
-                            self.log.error_log(f"Error Transcript Info: {e}")
-                            pass
-                    else:
-                        task_entity.from_dict({"status":4})
-                        db.session.commit() 
-                        self.log.msg_log(f"Transcript Info task: {task['id']} exist")
+                            self.change_task_status(task_entity,2)
+                            self.log.msg_log(f"{l} Video Info. Reason: Exist")
                         
+                        if isSubs:
+                            cnt_ti = Transcript.query.filter_by(video_key=task['video_key']).count()
+                            if cnt_ti == 0:
+                                try:
+                                    self.create_transcript_info(task)
+                                    self.change_task_status(task_entity, 3)
+                                except Exception as e:
+                                    status_info = f"{l} Transcript Info. Error: {e}"
+                                    self.change_task_status(task_entity, 1, status_info)
+                                    self.log.error_log(status_info)
+                                    pass
+                            else:
+                                self.change_task_status(task_entity, 3)
+                                self.log.msg_log(f"{l} Transcript Info. Reason: Exist")
+                        else:
+                            status_info = f"{l} Transcript Info. Reason: Subtitles or Transcripts are disabled for this video."
+                            self.change_task_status(task_entity, 1, status_info)
+                            self.log.error_log(status_info)
+                    else:
+                        status_info = f"{l} Check Playability: False = status: {status} - reason: {reason}"
+                        self.change_task_status(task_entity, 1, status_info)
+                        self.log.error_log(f"Check task: {task['id']} playability status: False")
+
                 else:
-                    task_entity.from_dict({"status":1})
-                    db.session.commit()
-                    self.log.error_log(f"Check task: {task['id']} platform: False")
+                    status_info = f"{l} Check Platform: False = platform{task['platform']} -> url: {task['url']}"
+                    self.change_task_status(task_entity, 1, status_info)
+                    self.log.error_log(status_info)
 
         except Exception as e:
             self.log.error_log(f"get_video_from_youtube: {e}")
@@ -272,7 +287,7 @@ class Service():
             db.session.add(video)
             db.session.commit()
             self.log.status_log(f"Created Video Info: task_id {task['id']} video_key: {task['video_key']}")
-
+            return is_translatable
         except Exception as e:
             self.log.error_log(f"Error create video info task id: {task['id']} key: {task['video_key']}. Error: {e}")
             raise e

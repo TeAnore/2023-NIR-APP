@@ -30,21 +30,21 @@ def create_task():
         return bad_request('must include user_id, url and reaction fields')
 
     try:
-        task = Task()
+        
         user = User()
         user_id = str(data['user_id'])
         user = User.query.filter_by(external_user_id=user_id).first()
         user.to_dict(user)
         data['user_id'] = user.id
         if user:
-
+            task = Task()
             task = Task.query.filter_by(user_id=data['user_id'], url=data['url']).first()
-
             if task:
                 task.from_dict(data, new_task=False)
                 db.session.commit()
                 log.msg_log(f"Update user_id: {user.id} task_id: {task.id}")
             else:
+                task = Task()
                 data['platform_type'] = service.get_platform_type(data['platform'], data['url'])
                 task.from_dict(data, new_task=True)
                 db.session.add(task)
