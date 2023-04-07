@@ -108,9 +108,10 @@ class Service():
                         pass
                     
                     if self.check_availability(task, video.vid_info['playabilityStatus']):
-                        self.log.msg_log(f"Check task: {task['id']} playability status: True")
-                        cnt_vi = Video.query.filter_by(video_key=task['video_key']).count()
 
+                        self.log.msg_log(f"Check task: {task['id']} playability status: True")
+
+                        cnt_vi = Video.query.filter_by(video_key=task['video_key']).count()
                         if cnt_vi == 0:
                             self.log.msg_log(f"Video info task: {task['id']} count {cnt_vi}")
 
@@ -129,40 +130,49 @@ class Service():
                                 except Exception as e:
                                     self.log.error_log(f"Error Video Info: {e}")
                                     raise e
-                                
-                                try:
-                                    self.create_transcript_info(task)
-                                    task_entity.from_dict({"status":3})
-                                    db.session.commit()
-
-                                except Exception as e:
-                                    self.log.error_log(f"Error Transcript Info: {e}")
-                                    raise e
-
+   
                                 if needDownload:
                                     self.log.msg_log(f"Download video task: {task['id']} start")
 
                                     try:
                                         video.streams.filter(progressive="True").get_highest_resolution().download(output_path=current_app.config['PATH_DOWNLOAD'])
                                     except Exception as e:
-                                        task_entity.from_dict({"status":4})
+                                        task_entity.from_dict({"status":3})
                                         db.session.commit() 
                                         self.log.error_log(f"Downlod video: {task['id']}. Error: {e}")
                                         raise e
                                 else:
                                     self.log.msg_log(f"Download video task: {task['id']} not needed")
 
-
                                 self.log.msg_log(f"Get video info task: {task['id']} comlite")
 
                             except Exception as e:
+                                task_entity.from_dict({"status":1})
+                                db.session.commit()
+
                                 self.log.error_log(f"Get video info task: {task['id']}. Error: {e}")
                                 pass
                         else:
                             task_entity.from_dict({"status":2})
                             db.session.commit() 
                             self.log.msg_log(f"Video info task: {task['id']} exist")
-                            pass
+
+                        cnt_ti = Transcript.query.filter_by(video_key=task['video_key']).count()
+                        if cnt_ti == 0:
+                            try:
+                                self.create_transcript_info(task)
+                                task_entity.from_dict({"status":4})
+                                db.session.commit()
+                            
+                            except Exception as e:
+                                task_entity.from_dict({"status":1})
+                                db.session.commit()
+                                self.log.error_log(f"Error Transcript Info: {e}")
+                                pass
+                        else:
+                            task_entity.from_dict({"status":4})
+                            db.session.commit() 
+                            self.log.msg_log(f"Transcript Info task: {task['id']} exist")
 
                     else:
                         task_entity.from_dict({"status":1})

@@ -26,20 +26,20 @@ class Logger:
     
     # Init Message Deep Blue
     def init_log(self, message):
-        msg = '\x1b[0;34;40m' + 'Bot Initialization: ' +  str(message) + '\x1b[0;37;40m'
+        msg = '\x1b[0;34;40m' + 'App Initialization: ' +  str(message) + '\x1b[0;37;40m'
         print(f'{msg}')
 
     # Status Message Blue
     def status_log(self, message):
-        msg = '\x1b[0;36;40m' + 'Bot Status: ' + str(message) + '\x1b[0;37;40m'
+        msg = '\x1b[0;36;40m' + 'App Status: ' + str(message) + '\x1b[0;37;40m'
         print(f'{msg}')
     
     # Warning Message Yellow
     def warning_log(self, message):
-        msg = '\x1b[0;33;40m' + 'Bot Warning: ' + str(message) + '\x1b[0;37;40m'
+        msg = '\x1b[0;33;40m' + 'App Warning: ' + str(message) + '\x1b[0;37;40m'
         print(f'{msg}')
 
     # Error Message Red
     def error_log(self, message):
-        msg = '\x1b[0;31;40m' + 'Bot Error: ' + str(message) + '\x1b[0;37;40m'
+        msg = '\x1b[0;31;40m' + 'App Error: ' + str(message) + '\x1b[0;37;40m'
         print(f'{msg}')

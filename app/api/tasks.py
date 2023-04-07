@@ -33,27 +33,34 @@ def create_task():
         task = Task()
         user = User()
         user_id = str(data['user_id'])
-        print(f"User Data Id: {data['user_id']}")
         user = User.query.filter_by(external_user_id=user_id).first()
         user.to_dict(user)
-        #print(f"User after select: {user}")
-        #print(f"User Id : {user.id}")
         data['user_id'] = user.id
         data['platform_type'] = service.get_platform_type(data['platform'], data['url'])
+
         if user:
-            task.from_dict(data, new_task=True)
-            db.session.add(task)
-            db.session.commit()
+            task = Task.query.filter_by(user_id=data['user_id'], url=data['url']).first()
+            if task:
+                task.from_dict(data, new_task=False)
+                db.session.commit()
+                log.msg_log(f"Update user_id:{user.id} task_id: {task.id}")
+            else:
+                task.from_dict(data, new_task=True)
+                db.session.add(task)
+                db.session.commit()
+                log.msg_log(f"Create user_id:{user.id} task_id: {task.id}")
+
             response = jsonify(task.to_dict())
             response.status_code = 201
             response.headers['Location'] = url_for('api.get_task', id=task.id)
 
-            return response
-            
+            return response            
+
         else:
             return not_found(f"User with id: {user_id} not found.")
 
     except Exception as error:
+        log.error_log(f"Error on task creating: {error}")
         return bad_request(f"Error on task creating: {error}")
 
 @bp.route('/tasks/<int:id>', methods=['PUT'])
