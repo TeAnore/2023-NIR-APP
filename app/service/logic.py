@@ -67,6 +67,7 @@ class Service():
         or pattern_live.match(url.lower()): 
             return True
         else:
+            self.log.dev_log(f"Original URL: {url}")
             return False
 
     def get_platform_type(self, platform, url):

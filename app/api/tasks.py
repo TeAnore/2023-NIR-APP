@@ -88,7 +88,7 @@ def run_tasks():
 
     service.get_video_from_youtube(tasks)
     
-    log.status_log(f"Task coplited!")
+    log.status_log(f"Task complited!")
     response = jsonify(tasks)
     response.status_code = 200
     return response
@@ -102,7 +102,7 @@ def run_task(id):
 
     service.get_video_from_youtube(tasks)
     
-    log.status_log(f"Task coplited!")
+    log.status_log(f"Task complited!")
     response = jsonify(tasks)
     response.status_code = 200
     return response
