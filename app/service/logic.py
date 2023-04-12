@@ -1,7 +1,12 @@
+import cv2
 import re
 import json
 import pandas as pd
 import numpy as np
+import ultralytics as ul
+
+from ultralytics import YOLO
+from PIL import Image
 from datetime import datetime
 from pytube import YouTube
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -104,10 +109,35 @@ class Service():
 
     def change_task_status(self, task, status, status_info=''):
         data = {}
-        data["status"] = status 
-        data["status_info"] = status_info
+        data["status"] = status
+        if status_info:
+            data["status_info"] = status_info
         task.from_dict(data, new_task=False)
         db.session.commit()
+
+    def get_youtube_object(self, url):
+        result = False
+        try:
+            max_try = 5
+            cnt = 0
+
+            while not result or cnt < max_try:
+                try: 
+                  video = YouTube(url)
+                  title = video.title
+                  result = True
+
+                except Exception as e:
+                    if "UnboundLocalError: local variable 'title' referenced before assignment" in e:
+                        continue
+                    else:
+                        raise e
+                cnt += 1
+
+            return video
+
+        except Exception as e:
+            raise e
 
     def get_video_from_youtube(self, tasks):
         try:
@@ -117,11 +147,12 @@ class Service():
                 
                 task_entity=Task.query.get(task['id'])
                 needDownload = task['is_need_download']
+                isSubs       = False
 
                 if self.check_platform(task['platform'], task['url']):
                     self.log.msg_log(f"{l} Check Platform: True")
                     try:
-                        video = YouTube(task['url'])
+                        video = self.get_youtube_object(task['url'])
                     except Exception as e:
                         status_info = f"{l} Video Info. YT-PT Error: {e}"
                         self.change_task_status(task_entity, 1, status_info)
@@ -136,10 +167,11 @@ class Service():
                             try:
                                 ## DEVELOP FLAG
                                 needDownload = False
-                                self.log.dev_log(f"{l}Video Info. Need Download: {needDownload} task flag: {task['is_need_download']}")
+                                self.log.dev_log(f"{l} Video Info. Need Download: {needDownload} task flag: {task['is_need_download']}")
 
                                 try:
                                     isSubs = self.create_video_info(task, video)
+                                    cnt_vi += 1
                                     self.change_task_status(task_entity,2)
                                     self.log.msg_log(f"{l} Video Info. Info Comlite")
                                 except Exception as e:
@@ -185,7 +217,11 @@ class Service():
                                 self.log.msg_log(f"{l} Transcript Info. Reason: Exist")
                         else:
                             status_info = f"{l} Transcript Info. Reason: Subtitles or Transcripts are disabled for this video."
-                            self.change_task_status(task_entity, 1, status_info)
+                            if cnt_vi == 0:
+                                self.change_task_status(task_entity, 1, status_info)
+                            else:
+                                self.change_task_status(task_entity, 3)
+
                             self.log.error_log(status_info)
                     else:
                         status_info = f"{l} Check Playability: False = status: {status} - reason: {reason}"
@@ -205,7 +241,7 @@ class Service():
         try:
             video = Video()
             try:
-                self.log.dev_log(f"Try parse vid_info")
+                #self.log.dev_log(f"Try parse vid_info")
                 #for key in vi.vid_info: self.log.dev_log(f"vid_info key: {key}")
                 '''
                 vid_info key: responseContext
@@ -299,7 +335,7 @@ class Service():
                 transcript_list = YouTubeTranscriptApi.list_transcripts(task['video_key'])
                 
                 for transcript in transcript_list:
-                    self.log.dev_log(f"Transcript list key: {transcript}")
+                    #self.log.dev_log(f"Transcript list key: {transcript}")
 
                     language = transcript.language
                     language_code = str(transcript.language_code)
@@ -316,12 +352,13 @@ class Service():
                         else:
                             if transcript_list.find_transcript([language_code]):
                                 auto_subtitles = str(YouTubeTranscriptApi.get_transcript(task['video_key'], languages=[language_code]))
-
+                    '''
                     self.log.dev_log(f"transcript.language {language}")
                     self.log.dev_log(f"transcript.language_code {language_code}")
                     self.log.dev_log(f"transcript.is_generated {is_generated}")
                     self.log.dev_log(f"transcript.is_translatable {is_translatable}")
-                    
+                    '''
+
                     t = Transcript()
                     t.video_key = task['video_key']
                     
@@ -497,3 +534,63 @@ class Service():
             message = f"Generate Data Frame: {e}"
             self.log.error_log(message)
             return message
+        
+    def try_yolo(self):
+        try:
+
+            # PYTHON USAGE
+
+            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8x.pt")
+            # Create a new YOLO model from scratch
+            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8n.yaml")
+
+            # Load a pretrained YOLO model (recommended for training)
+            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8n.pt")
+
+            # Train the model using the 'coco128.yaml' dataset for 3 epochs
+            results = model.train(data=f"{current_app.config['PATH_YOLO']}\\coco128.yaml", epochs=3)
+
+            # Evaluate the model's performance on the validation set
+            results = model.val()
+
+            # Perform object detection on an image using the model
+            results = model('https://ultralytics.com/images/bus.jpg')
+
+            # Export the model to ONNX format
+            success = model.export(format='onnx')
+            
+
+            # TRAIN
+            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8n.pt") # pass any model type
+            model.train(epochs=5)
+
+            #VAL
+            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8n.yaml")
+            model.train(data=f"{current_app.config['PATH_YOLO']}\\coco128.yaml", epochs=5)
+            model.val()  # It'll automatically evaluate the data you trained.
+
+
+            # PREDICT
+            model = YOLO(f"{current_app.config['PATH_YOLO']}\\model.pt")
+            # accepts all formats - image/dir/Path/URL/video/PIL/ndarray. 0 for webcam
+            results = model.predict(source="0")
+            results = model.predict(source="folder", show=True) # Display preds. Accepts all YOLO predict arguments
+
+            # from PIL
+            im1 = Image.open(f"{current_app.config['PATH_YOLO']}\\bus.jpg")
+            results = model.predict(source=im1, save=True)  # save plotted images
+
+            # from ndarray
+            im2 = cv2.imread(f"{current_app.config['PATH_YOLO']}\\bus.jpg")
+            results = model.predict(source=im2, save=True, save_txt=True)  # save predictions as labels
+
+            # from list of PIL/ndarray
+            results = model.predict(source=[im1, im2])
+            
+            # EXPORT
+            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8n.pt")
+            model.export(format='onnx', dynamic=True)
+
+        except Exception as e:
+            self.log.dev_log(f"Error YOLO: {e}")
+            raise e

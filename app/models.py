@@ -65,6 +65,7 @@ class User(PaginatedAPIMixin, UserMixin, BaseModel):
     last_name = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), index=True, unique=True)
     password_hash =  db.Column(db.String(128))
+    age_categoty =  db.Column(db.String(128))
     description = db.Column(db.String(255), nullable=True)
 
     tasks = db.relationship('Task', backref='author', lazy='dynamic')
@@ -98,7 +99,8 @@ class User(PaginatedAPIMixin, UserMixin, BaseModel):
             'id': self.id,
             'external_user_id': self.external_user_id,
             'username': self.username,
-            'description': self.description
+            'description': self.description,
+            'age_categoty': self.age_categoty
         }
         if include_email:
             data['email'] = self.email
@@ -111,7 +113,8 @@ class User(PaginatedAPIMixin, UserMixin, BaseModel):
                         'first_name',
                         'last_name',
                         'email',
-                        'description'
+                        'description',
+                        'age_categoty'
         ]:
             if field in data:
                 setattr(self, field, data[field])
@@ -137,6 +140,7 @@ class Task(PaginatedAPIMixin, BaseModel):
     status_info = db.Column(db.Text)
     is_need_download = db.Column(db.Boolean)
     is_downloaded = db.Column(db.Boolean)
+    user_message = db.Column(db.Text)
 
     def to_dict(self, flag=False):
         data = {
@@ -152,7 +156,8 @@ class Task(PaginatedAPIMixin, BaseModel):
             'status': self.status,
             'status_info': self.status_info,
             'is_need_download': self.is_need_download,
-            'is_downloaded': self.is_downloaded
+            'is_downloaded': self.is_downloaded,
+            'user_message': self.user_message
         }
         return data
     
@@ -169,12 +174,15 @@ class Task(PaginatedAPIMixin, BaseModel):
                         'status',
                         'status_info',
                         'is_need_download',
-                        'is_downloaded'
+                        'is_downloaded',
+                        'user_message'
         ]:
             if field in data:
                 setattr(self, field, data[field])
         if new_task or 'status' not in data:
             self.status = 0
+        if new_task or 'is_downloaded' not in data:
+            self.is_downloaded = False
         if new_task or 'is_need_download' not in data:
             self.is_need_download = True
 

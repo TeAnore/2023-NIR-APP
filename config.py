@@ -36,3 +36,5 @@ class Config(object):
 
     PATH_DOWNLOAD = basedir + "/downloads/youtube"
     PATH_DUMPS = basedir + "\dumps"
+    PATH_YOLO =  basedir + "\YOLO"
+    PATH_DUMPS = basedir + "\app\models"

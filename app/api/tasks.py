@@ -29,8 +29,14 @@ def create_task():
     if 'user_id' not in data or 'url' not in data or 'reaction' not in data:
         return bad_request('must include user_id, url and reaction fields')
 
+    needCaption = False
+    if 'caption' in data:
+        if data['caption'] == 'Unknow':
+            needCaption = True
+    else:
+        needCaption = True
+
     try:
-        
         user = User()
         user_id = str(data['user_id'])
         user = User.query.filter_by(external_user_id=user_id).first()
@@ -40,10 +46,17 @@ def create_task():
             task = Task()
             task = Task.query.filter_by(user_id=data['user_id'], url=data['url']).first()
             if task:
-                task.from_dict(data, new_task=False)
+                if needCaption:
+                    data['caption'] = task.caption
+
                 db.session.commit()
                 log.msg_log(f"Update user_id: {user.id} task_id: {task.id}")
             else:
+                if needCaption:
+                    vi = service.get_youtube_object(data['url'])
+                    details = vi.vid_info.get('videoDetails', {})
+                    data['caption'] = details.get('title', '')
+
                 task = Task()
                 data['platform_type'] = service.get_platform_type(data['platform'], data['url'])
                 task.from_dict(data, new_task=True)
@@ -84,7 +97,7 @@ def update_task(id):
 
 @bp.route('/tasks/run', methods=['POST'])
 def run_tasks():
-    log.status_log(f"Try run download tasks")
+    log.status_log(f"Process tasks: Begin")
     data = request.get_json() or {}
 
     if 'status' not in data:
@@ -96,21 +109,21 @@ def run_tasks():
 
     service.get_video_from_youtube(tasks)
     
-    log.status_log(f"Task complited!")
+    log.status_log(f"Process tasks: Complited!")
     response = jsonify(tasks)
     response.status_code = 200
     return response
 
 @bp.route('/tasks/<int:id>/run', methods=['POST'])
 def run_task(id):
-    log.status_log(f"Try run download tasks")
+    log.status_log(f"Process task: {id} - Begin")
     data = request.get_json() or {}
 
     tasks = Task.to_collection_short_dict(Task.query.filter_by(id=id))
 
     service.get_video_from_youtube(tasks)
     
-    log.status_log(f"Task complited!")
+    log.status_log(f"Process task: {id} - Complite!")
     response = jsonify(tasks)
     response.status_code = 200
     return response
@@ -135,4 +148,16 @@ def set_key():
     log.status_log(f"Task complited!")
     response = jsonify("Task complited!")
     response.status_code = 200
+    return response
+
+@bp.route('/tasks/try-yolo', methods=['POST'])
+def try_yolo():
+    log.dev_log(f"Try YOLO: Begin")
+    data = request.get_json() or {}
+
+    service.try_yolo()
+
+    response = jsonify("Try YOLO: Complite!")
+    response.status_code = 200
+    log.dev_log(f"Try YOLO: Complite!")
     return response

@@ -19,8 +19,10 @@ def gen_data_frame():
             return bad_request(f"must include type field")
 
         result = service.generate_data_frame(data['type'])
-        tmp = json.loads(result)
-        response = jsonify(json.dumps(tmp))
+        #tmp = json.loads(result)
+        #response = jsonify(json.dumps(tmp))
+        msg = f"Data frame type {data['type']} generation complite."
+        response = jsonify({"result":msg})
         response.status_code = 200
         
         log.status_log(f"Data frames generation complite.")
