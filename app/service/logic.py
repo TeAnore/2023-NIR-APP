@@ -1,12 +1,7 @@
-import cv2
-import re
-import json
-import pandas as pd
-import numpy as np
-import ultralytics as ul
 
-from ultralytics import YOLO
-from PIL import Image
+import json
+import re
+
 from datetime import datetime
 from pytube import YouTube
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -538,58 +533,7 @@ class Service():
     def try_yolo(self):
         try:
 
-            # PYTHON USAGE
-
-            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8x.pt")
-            # Create a new YOLO model from scratch
-            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8n.yaml")
-
-            # Load a pretrained YOLO model (recommended for training)
-            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8n.pt")
-
-            # Train the model using the 'coco128.yaml' dataset for 3 epochs
-            results = model.train(data=f"{current_app.config['PATH_YOLO']}\\coco128.yaml", epochs=3)
-
-            # Evaluate the model's performance on the validation set
-            results = model.val()
-
-            # Perform object detection on an image using the model
-            results = model('https://ultralytics.com/images/bus.jpg')
-
-            # Export the model to ONNX format
-            success = model.export(format='onnx')
-            
-
-            # TRAIN
-            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8n.pt") # pass any model type
-            model.train(epochs=5)
-
-            #VAL
-            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8n.yaml")
-            model.train(data=f"{current_app.config['PATH_YOLO']}\\coco128.yaml", epochs=5)
-            model.val()  # It'll automatically evaluate the data you trained.
-
-
-            # PREDICT
-            model = YOLO(f"{current_app.config['PATH_YOLO']}\\model.pt")
-            # accepts all formats - image/dir/Path/URL/video/PIL/ndarray. 0 for webcam
-            results = model.predict(source="0")
-            results = model.predict(source="folder", show=True) # Display preds. Accepts all YOLO predict arguments
-
-            # from PIL
-            im1 = Image.open(f"{current_app.config['PATH_YOLO']}\\bus.jpg")
-            results = model.predict(source=im1, save=True)  # save plotted images
-
-            # from ndarray
-            im2 = cv2.imread(f"{current_app.config['PATH_YOLO']}\\bus.jpg")
-            results = model.predict(source=im2, save=True, save_txt=True)  # save predictions as labels
-
-            # from list of PIL/ndarray
-            results = model.predict(source=[im1, im2])
-            
-            # EXPORT
-            model = YOLO(f"{current_app.config['PATH_YOLO']}\\yolov8n.pt")
-            model.export(format='onnx', dynamic=True)
+            pass
 
         except Exception as e:
             self.log.dev_log(f"Error YOLO: {e}")
