@@ -1,14 +1,15 @@
 from app import db
-from app.service import logic
-from app.models import User, Task
-from app.logger import Logger
 from app.api import bp
-from app.api.errors import bad_request, not_found, error_response
+from app.api.errors import bad_request, not_found
+from app.logger import Logger
+from app.models import User, Task, Video
+from app.service import logic, video_service
+
 from flask import request, jsonify, url_for
-from psycopg2.errors import IntegrityConstraintViolation, RestrictViolation, NotNullViolation, ForeignKeyViolation, UniqueViolation, CheckViolation, ExclusionViolation, InvalidCursorState
 
 log = Logger()
 service = logic.Service()
+vs = video_service.VideoService()
 
 @bp.route('/tasks/<int:id>', methods=['GET'])
 def get_task(id):
@@ -24,12 +25,14 @@ def get_tasks():
 @bp.route('/tasks', methods=['POST'])
 def create_task():
     data = request.get_json() or {}
-    print(f"Create task data: {data}")
+    
+    log.dev_log(f"Create Request: {request}")
 
     if 'user_id' not in data or 'url' not in data or 'reaction' not in data:
-        return bad_request('must include user_id, url and reaction fields')
+        return bad_request('Must include user_id, url and reaction fields')
 
     needCaption = False
+    
     if 'caption' in data:
         if data['caption'] == 'Unknow':
             needCaption = True
@@ -53,12 +56,15 @@ def create_task():
                 log.msg_log(f"Update user_id: {user.id} task_id: {task.id}")
             else:
                 if needCaption:
-                    vi = service.get_youtube_object(data['url'])
-                    details = vi.vid_info.get('videoDetails', {})
-                    data['caption'] = details.get('title', '')
+                    vi = vs.get_youtube_object(data['url'])
+                    
+                    if str(type(vi)) == "<class 'str'>":
+                        data['caption'] = 'Unknow'
+                    else:
+                        details = vi.vid_info.get('videoDetails', {})
+                        data['caption'] = details.get('title', '')
 
                 task = Task()
-                data['platform_type'] = service.get_platform_type(data['platform'], data['url'])
                 task.from_dict(data, new_task=True)
                 db.session.add(task)
                 db.session.commit()
@@ -106,9 +112,9 @@ def run_tasks():
         status = data['status']
 
     tasks = Task.to_collection_short_dict(Task.query.filter_by(status=status).order_by('created'))
+    for task in tasks['items']:
+        service.get_video_from_youtube(task)
 
-    service.get_video_from_youtube(tasks)
-    
     log.status_log(f"Process tasks: Complited!")
     response = jsonify(tasks)
     response.status_code = 200
@@ -119,15 +125,15 @@ def run_task(id):
     log.status_log(f"Process task: {id} - Begin")
     data = request.get_json() or {}
 
-    tasks = Task.to_collection_short_dict(Task.query.filter_by(id=id))
-
-    service.get_video_from_youtube(tasks)
+    task = Task.query.get_or_404(id).to_dict()
+    service.get_video_from_youtube(task)
     
     log.status_log(f"Process task: {id} - Complite!")
-    response = jsonify(tasks)
+    response = jsonify(task)
     response.status_code = 200
     return response
 
+'''
 @bp.route('/tasks/set-key', methods=['POST'])
 def set_key():
     log.status_log(f"Try set video keys")
@@ -161,3 +167,5 @@ def try_yolo():
     response.status_code = 200
     log.dev_log(f"Try YOLO: Complite!")
     return response
+
+'''

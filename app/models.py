@@ -59,13 +59,13 @@ class User(PaginatedAPIMixin, UserMixin, BaseModel):
     __tablename__ = 'user'
 
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+    password_hash =  db.Column(db.String(128))
+    email = db.Column(db.String(255), index=True, unique=True)
     external_user_id = db.Column(db.String(255), unique=True, nullable=True, index=True)
     username = db.Column(db.String(255), nullable=False, index=True)
     first_name = db.Column(db.String(255), nullable=False)
     last_name = db.Column(db.String(255), nullable=False)
-    email = db.Column(db.String(255), index=True, unique=True)
-    password_hash =  db.Column(db.String(128))
-    age_categoty =  db.Column(db.String(128))
+    age_categoty =  db.Column(db.String(128), nullable=True)
     description = db.Column(db.String(255), nullable=True)
 
     tasks = db.relationship('Task', backref='author', lazy='dynamic')
@@ -120,6 +120,10 @@ class User(PaginatedAPIMixin, UserMixin, BaseModel):
                 setattr(self, field, data[field])
         if new_user and 'password' in data:
             self.set_password(data['password'])
+        if new_user and 'age_categoty' not in data:
+            self.age_categoty = '0-1000'
+        if not new_user:
+            self.updated = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
     def created_tasks(self):
         ct = Task.query.filter_by(user_id=self.id)
@@ -129,62 +133,48 @@ class Task(PaginatedAPIMixin, BaseModel):
     __tablename__ = 'task'
 
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
+    user_message = db.Column(db.Text)
     system = db.Column(db.String(100))
-    platform = db.Column(db.String(100))
-    platform_type = db.Column(db.String(100))
-    caption = db.Column(db.String(100))
-    url = db.Column(db.String(500))
     video_key = db.Column(db.String(11), nullable=False, index=True)
+    url = db.Column(db.String(500))
+    caption = db.Column(db.String(100))
     reaction = db.Column(db.Integer)
     status = db.Column(db.Integer)
-    status_info = db.Column(db.Text)
-    is_need_download = db.Column(db.Boolean)
-    is_downloaded = db.Column(db.Boolean)
-    user_message = db.Column(db.Text)
+    error = db.Column(db.Text)
 
     def to_dict(self, flag=False):
         data = {
             'id': self.id,
             'user_id': self.user_id,
+            'user_message': self.user_message,
             'system': self.system,
-            'platform': self.platform,
-            'platform_type': self.platform_type,
-            'caption': self.caption,
-            'url': self.url,
             'video_key': self.video_key,
+            'url': self.url,
+            'caption': self.caption,
             'reaction': self.reaction,
             'status': self.status,
-            'status_info': self.status_info,
-            'is_need_download': self.is_need_download,
-            'is_downloaded': self.is_downloaded,
-            'user_message': self.user_message
+            'error': self.error
         }
         return data
     
     def from_dict(self, data, new_task=False):
         for field in [  
                         'user_id',
+                        'user_message',
                         'system',
-                        'platform',
-                        'platform_type',
-                        'caption',
-                        'url',
                         'video_key',
+                        'url',
+                        'caption',
                         'reaction',
                         'status',
-                        'status_info',
-                        'is_need_download',
-                        'is_downloaded',
-                        'user_message'
+                        'error'
         ]:
             if field in data:
                 setattr(self, field, data[field])
         if new_task or 'status' not in data:
             self.status = 0
-        if new_task or 'is_downloaded' not in data:
-            self.is_downloaded = False
-        if new_task or 'is_need_download' not in data:
-            self.is_need_download = True
+        if not new_task:
+            self.updated = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
 class Video(PaginatedAPIMixin, BaseModel):
     __tablename__ = 'video'
@@ -200,10 +190,13 @@ class Video(PaginatedAPIMixin, BaseModel):
     short_description = db.Column(db.Text)
     language_code = db.Column(db.String(10))
     length_seconds = db.Column(db.Integer)
+    exstention = db.Column(db.String(10))
+    current_format = db.Column(db.Text)
     progressive_formats = db.Column(db.Text)
     adaptive_formats = db.Column(db.Text)
-    is_translatable = db.Column(db.Boolean)
     video_info = db.Column(db.Text)
+    is_translatable = db.Column(db.Boolean)
+    is_downloaded = db.Column(db.Boolean)
 
     def to_dict(self, flag=False):
         data = {
@@ -219,16 +212,19 @@ class Video(PaginatedAPIMixin, BaseModel):
             'author': self.author,
             'keywords': self.keywords,
             'short_description': self.short_description,
-            'length_seconds': self.length_seconds,
             'language_code': self.language_code,
+            'length_seconds': self.length_seconds,
+            'exstention': self.exstention,
+            'current_format': self.current_format,
             'progressive_formats': self.progressive_formats,
             'adaptive_formats': self.adaptive_formats,
             'is_translatable': self.is_translatable,
-            'video_info': self.video_info
+            'video_info': self.video_info,
+            'is_downloaded': self.is_downloaded
         }
         return data
     
-    def from_dict(self, data, new_task=False):
+    def from_dict(self, data, new_video=False):
         for field in [
                         'video_key',
                         'system',
@@ -240,15 +236,22 @@ class Video(PaginatedAPIMixin, BaseModel):
                         'author',
                         'keywords',
                         'short_description',
-                        'length_seconds',
                         'language_code',
+                        'length_seconds',
+                        'exstention',
+                        'current_format',
                         'progressive_formats',
                         'adaptive_formats',
                         'is_translatable',
-                        'video_info'
+                        'video_info',
+                        'is_downloaded'
         ]:
             if field in data:
                 setattr(self, field, data[field])
+            if new_video:
+                self.is_downloaded = False
+            if not new_video:
+                self.updated = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
 
 class Transcript(PaginatedAPIMixin, BaseModel):
@@ -278,7 +281,7 @@ class Transcript(PaginatedAPIMixin, BaseModel):
         }
         return data
     
-    def from_dict(self, data, new_task=False):
+    def from_dict(self, data, new_transcript=False):
         for field in [
                         'video_key',
                         'language',
@@ -292,3 +295,5 @@ class Transcript(PaginatedAPIMixin, BaseModel):
         ]:
             if field in data:
                 setattr(self, field, data[field])
+            if not new_transcript:
+                self.updated = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')

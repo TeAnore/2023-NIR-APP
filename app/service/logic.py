@@ -1,390 +1,210 @@
-
+import os
 import json
 import re
+import pandas as pd
+from ultralytics import YOLO
 
 from datetime import datetime
-from pytube import YouTube
-from youtube_transcript_api import YouTubeTranscriptApi
+#from pytube import YouTube
+
 
 from app import db
 from app.models import User, Task, Video, Transcript
 from app.logger import Logger
+from app.service import video_service, transcript_service
 from flask import current_app
 
 class Service():
     def __init__(self):
         self.log = Logger()
-        self.yt_pattern_web = re.compile("^(https){1}\:(\/){2}w{3}\.(youtube){1}\.(com){1}\/(watch){1}\?v{1}\={1}(\w|\d|\S){11}(.+|)$")
-        self.yt_pattern_mobile = re.compile("^(https){1}\:(\/){2}(youtu){1}\.(be){1}\/(\w|\d|\S){11}$")
-        self.yt_pattern_shorts = re.compile("^(https){1}\:(\/){2}w{3}\.(youtube){1}\.(com){1}\/(shorts){1}\/(\w|\d|\S){11}(.+|)$")
-        self.yt_pattern_live = re.compile("^(https){1}\:(\/){2}w{3}\.(youtube){1}\.(com){1}\/(live){1}\/(\w|\d|\S){11}(.+|)$")
-        self.yt_pattern_m = re.compile("^(https){1}\:(\/){2}(m){1}(\.){1}(youtube){1}(\.){1}(com){1}(\/){1}(watch){1}(\?){1}(v\=){1}(\w|\d|\S){11}(.+|)$")
-        self.yt_pattern_share_shorts = re.compile("^(https){1}\:(\/){2}(youtube){1}\.(com){1}\/(shorts){1}\/(\w|\d|\S){11}(.+|)$")
+        self.vs = video_service.VideoService()
+        self.ts = transcript_service.TranscriptService()
 
-    def check_availability(self, task, info):
-        result = True
-        try:
-            status = info['status']
-            if status != 'OK':
-                reason = info['reason']
-                self.log.msg_log(f"Check availability task_id: {task['id']} status: {status} - reason: {reason}")
+    def check_task_status(self, task):
+        if task['status'] == 0:
+            result = 'PROCESS'
+        elif task['status'] == 1: 
+            
+            if task['error'].lower() == '':
+                result = 'REPAIR'
             else:
-                reason = ''
-                self.log.msg_log(f"Check availability task_id: {task['id']} status: {status}")
+                result = 'BAD'
 
-            if status == 'UNPLAYABLE':
-                if reason == 'Join this channel to get access to members-only content like this video, and other exclusive perks.':
-                    result = False
-                elif reason == 'This live stream recording is not available.':
-                    result = False
-                else:
-                    result = False
-            elif status == 'LOGIN_REQUIRED':
-                if reason == 'This is a private video. Please sign in to verify that you may see it.':
-                    result = False
-                elif reason == 'This video may be inappropriate for some users.':
-                    result = False
-                else:
-                    result = False
-            elif status == 'ERROR':
-                if reason == 'Video unavailable':
-                    result = False
-                else:
-                    result = False
-            elif status == 'LIVE_STREAM':
-                result = False
-            else:
-                result = True
-        except Exception as e:
-            self.log.error_log(f"Error check availability task_id: {task['id']}. Error: {e}")
-            result = False
-            pass
+        else:
+            result = 'COMPLITED'
+
+        return result
+
+    def change_task_status(self, task, status, error=None):
+        task = Task.query.get(task['id'])
         
-        return result, status, reason
-
-    def check_platform(self, platform, url):
-        if platform.lower() == 'youtube' and\
-        (  self.yt_pattern_web.match(url.lower()) \
-        or self.yt_pattern_mobile.match(url.lower())\
-        or self.yt_pattern_shorts.match(url.lower())\
-        or self.yt_pattern_live.match(url.lower())\
-        or self.yt_pattern_m.match(url.lower())\
-        or self.yt_pattern_share_shorts.match(url.lower())\
-        ):
-            return True
-        else:
-            self.log.dev_log(f"Original URL: {url}")
-            return False
-
-    def get_platform_type(self, platform, url):
-        if platform.lower() == 'youtube' and\
-        (  self.yt_pattern_web.match(url.lower()) \
-        or self.yt_pattern_mobile.match(url.lower())\
-        or self.yt_pattern_shorts.match(url.lower())\
-        or self.yt_pattern_live.match(url.lower())\
-        or self.yt_pattern_m.match(url.lower())\
-        or self.yt_pattern_share_shorts.match(url.lower())\
-        ):
-            if self.yt_pattern_web.match(url.lower()):
-                return 'web'
-            elif self.yt_pattern_mobile.match(url.lower()):
-                return 'mobile'
-            elif self.yt_pattern_m.match(url.lower()):
-                return 'full_mobile'
-            elif self.yt_pattern_shorts.match(url.lower()):
-                return 'shorts'
-            elif self.yt_pattern_share_shorts.match(url.lower()):
-                return 'share_shorts'
-            elif self.yt_pattern_live.match(url.lower()):
-                return 'live'
-            else:
-                return "unknown youtube"
-        else:
-            return f"unknown {platform.lower()}"
-
-    def change_task_status(self, task, status, status_info=''):
         data = {}
+        
         data["status"] = status
-        if status_info:
-            data["status_info"] = status_info
+        data["error"] = error
+
         task.from_dict(data, new_task=False)
         db.session.commit()
 
-    def get_youtube_object(self, url):
-        result = False
+    def update_task(self, task):
+        data = task
+        task = Task.query.get(task['id'])
+        task.from_dict(data, new_task=False)
+        db.session.commit()
+
+    def get_video_from_youtube(self, task):
         try:
-            max_try = 5
-            cnt = 0
+            l = f"USER_ID: {task['user_id']} TASK ID: {task['id']} VIDEO KEY: {task['video_key']}."
+            self.log.status_log(f"{l} Process Task: Begin")
+            # Проверяем состояние таски
+            action = self.check_task_status(task)
 
-            while not result or cnt < max_try:
-                try: 
-                  video = YouTube(url)
-                  title = video.title
-                  result = True
+            if action == 'COMPLITED':
+                return action
+            
+            # Чиним если была поломана
+            if action == 'REPAIR':
+                self.change_task_status(task, 0)
+                action = 'PROCESS'
 
-                except Exception as e:
-                    if "UnboundLocalError: local variable 'title' referenced before assignment" in e:
-                        continue
-                    else:
-                        raise e
-                cnt += 1
+            if action == 'PROCESS':
 
-            return video
-
-        except Exception as e:
-            raise e
-
-    def get_video_from_youtube(self, tasks):
-        try:
-            for task in tasks['items']:
-                l = f"USER_ID: {task['user_id']} TASK ID: {task['id']} VIDEO KEY: {task['video_key']}."
-                self.log.status_log(f"{l} Process Begin")
-                
-                task_entity=Task.query.get(task['id'])
-                needDownload = task['is_need_download']
-                isSubs       = False
-
-                if self.check_platform(task['platform'], task['url']):
+                # Проверяем доступные платформы
+                if self.vs.check_platform('youtube', task['url']):
                     self.log.msg_log(f"{l} Check Platform: True")
+                else:
+                    error_msg = "Check Platform: False"
+                    self.change_task_status(task, 1, error_msg)
+                    error_info = f"{l} {error_msg}"
+                    self.log.error_log(error_info)
+                    return error_info
+
+                # Получаем информацию о видео
+                # Проверяем существование
+                video = {}
+                video_info = {}
+                video_info = self.vs.get_video_info(task['video_key'])
+                if not video_info:
+                    # Получаем объект с YouTube
                     try:
-                        video = self.get_youtube_object(task['url'])
+                        video = self.vs.get_youtube_object(task['url'])
+                        playability_status = video.vid_info.get('playabilityStatus', {})
                     except Exception as e:
-                        status_info = f"{l} Video Info. YT-PT Error: {e}"
-                        self.change_task_status(task_entity, 1, status_info)
-                        self.log.error_log(status_info)
-                        pass
-                    
-                    result, status, reason = self.check_availability(task, video.vid_info['playabilityStatus'])
+                        error_msg = f"Video Info. YT-PT Error: {e}"
+                        self.change_task_status(task, 1, error_msg)
+                        error_info = f"{l} {error_msg}"
+                        self.log.error_log(error_info)
+                        return error_info
+
+                    # Проверяем доступность информации о видео
+                    # Проверяем возможность воспроизведения
+                    result, status, reason = self.vs.check_availability(task, playability_status)
                     if result:
-                        self.log.msg_log(f"{l} Video Info. Start")
-                        cnt_vi = Video.query.filter_by(video_key=task['video_key']).count()
-                        if cnt_vi == 0:
+                        try:
+                            video_info = self.vs.create_video_info(task, video)
+                            
+                            if str(type(video)) == "<class 'str'>":
+                                raise Exception('Bad video type', video)
+
+                        except Exception as e:
+                            error_msg = f"Video Info. Create Error: {e}"
+                            self.change_task_status(task, 1, error_msg)
+                            error_info = f"{l} {error_msg}"
+                            self.log.error_log(error_info)
+                            return error_info
+                    else:
+                        error_msg = f"Video Info. Playability Status: False = status: {status} - reason: {reason}"
+                        error_info = f"{l} {error_msg}"
+                        self.change_task_status(task, 1, error_msg)
+                        self.log.error_log(error_info)
+                        return error_info
+                else:
+                    self.log.dev_log(f"{l} Video Info. Exist")
+                
+                is_translatable = video_info['is_translatable']
+                is_downloaded = video_info['is_downloaded']
+
+                # Получаем информацию о субтитрах, если они есть
+                if is_translatable:
+                    transcript_info = {}
+                    # Проверяем существование субтитров
+                    transcript_info = self.ts.get_transcript_info(task['video_key'])
+
+                    if not transcript_info:
+                        try:
+                            self.ts.create_transcript_info(task)
+                        except Exception as e:
+                            error_msg = f"Transcript Info. Create Error: {e}"
+                            self.change_task_status(task, 1, error_msg)
+                            error_info = f"{l} {error_msg}"
+                            self.log.error_log(error_info)
+                            return error_info
+                    else:
+                        self.log.dev_log(f"{l} Transcript Info. Exist")
+                else:
+                    self.log.warning_log(f"{l} Transcript Info. Reason: Subtitles or Transcripts are disabled for this video.")
+
+                try:
+                    files = []
+                    with os.scandir(current_app.config['PATH_DOWNLOAD']) as it:
+                        for entry in it:
+                            if not entry.name.startswith('.') and entry.is_file():
+                                files.append(entry.name)
+                except Exception as e:
+                    raise e
+
+                # Скачиваем видео
+                if not is_downloaded:
+                    try:
+                        if not video:
+                            # Получаем объект с YouTube
                             try:
-                                ## DEVELOP FLAG
-                                needDownload = False
-                                self.log.dev_log(f"{l} Video Info. Need Download: {needDownload} task flag: {task['is_need_download']}")
+                                video = self.vs.get_youtube_object(task['url'])
 
-                                try:
-                                    isSubs = self.create_video_info(task, video)
-                                    cnt_vi += 1
-                                    self.change_task_status(task_entity,2)
-                                    self.log.msg_log(f"{l} Video Info. Info Comlite")
-                                except Exception as e:
-                                    self.log.error_log(f"Info Error: {e}")
-                                    raise e
-   
-                                if needDownload:
-                                    try:
-                                        video.streams.filter(progressive="True").get_highest_resolution().download(output_path=current_app.config['PATH_DOWNLOAD'])
-                                        task_entity.from_dict({"is_downloaded":True})
-                                        db.session.commit()
-                                        self.log.msg_log(f"{l} Video Info. Download Complite")
-                                    except Exception as e:
-                                        self.log.error_log(f"Download Error: {e}")
-                                        raise e
-                                else:
-                                    self.log.msg_log(f"{l} Video Info. Reason: Download not needed")
-
-                                self.log.msg_log(f"{l} Video Info. Comlite")
+                                if str(type(video)) == "<class 'str'>":
+                                    raise Exception('Bad video type', video)
 
                             except Exception as e:
-                                status_info = f"{l} Video Info. Error: {e}"
-                                self.change_task_status(task_entity, 1, status_info)
-                                self.log.error_log(status_info)
-                                pass
-                        else:
-                            self.change_task_status(task_entity,2)
-                            self.log.msg_log(f"{l} Video Info. Reason: Exist")
+                                error_msg = f"Download YT-PT Error: {e}"
+                                self.change_task_status(task, 1, error_msg)
+                                error_info = f"{l} {error_msg}"
+                                self.log.error_log(error_info)
+                                return error_info
+
+                        #video.streams.filter(progressive="True").get_highest_resolution().download(output_path=current_app.config['PATH_DOWNLOAD'])
+                        stream_tag_id = video.streams.filter(progressive="True").get_highest_resolution().itag
+
+                        stream = video.streams.get_by_itag(stream_tag_id)
                         
-                        if isSubs:
-                            cnt_ti = Transcript.query.filter_by(video_key=task['video_key']).count()
-                            if cnt_ti == 0:
-                                try:
-                                    self.create_transcript_info(task)
-                                    self.change_task_status(task_entity, 3)
-                                except Exception as e:
-                                    status_info = f"{l} Transcript Info. Error: {e}"
-                                    self.change_task_status(task_entity, 1, status_info)
-                                    self.log.error_log(status_info)
-                                    pass
-                            else:
-                                self.change_task_status(task_entity, 3)
-                                self.log.msg_log(f"{l} Transcript Info. Reason: Exist")
-                        else:
-                            status_info = f"{l} Transcript Info. Reason: Subtitles or Transcripts are disabled for this video."
-                            if cnt_vi == 0:
-                                self.change_task_status(task_entity, 1, status_info)
-                            else:
-                                self.change_task_status(task_entity, 3)
+                        r = False
+                        file_name = task['video_key'] + ".mp4"
+                        self.log.dev_log(f"Task file_name: {file_name}")
+                        for fn in files:
+                            if fn == file_name:
+                                r = True
 
-                            self.log.error_log(status_info)
-                    else:
-                        status_info = f"{l} Check Playability: False = status: {status} - reason: {reason}"
-                        self.change_task_status(task_entity, 1, status_info)
-                        self.log.error_log(f"Check task: {task['id']} playability status: False")
+                        self.log.dev_log(f"Check downloaded: {r}")
+                        if not r:
+                            stream.download(output_path=current_app.config['PATH_DOWNLOAD'], filename=task['video_key']+".mp4")
 
+                        stream.mime_type
+                        self.vs.mark_video_downloaded(task['video_key'], stream)
+
+                        task['is_downloaded'] = True
+                        task['error'] = None
+
+                        self.update_task(task)
+                        self.log.msg_log(f"{l} Download Complite")
+                    except Exception as e:
+                        self.log.error_log(f"Download Error: {e}")
+                        raise e
                 else:
-                    status_info = f"{l} Check Platform: False = platform{task['platform']} -> url: {task['url']}"
-                    self.change_task_status(task_entity, 1, status_info)
-                    self.log.error_log(status_info)
-
-        except Exception as e:
-            self.log.error_log(f"get_video_from_youtube: {e}")
-
-    def create_video_info(self, task, vi):
-        self.log.status_log(f"Create Video Info task id: {task['id']} key: {task['video_key']}")
-        try:
-            video = Video()
-            try:
-                #self.log.dev_log(f"Try parse vid_info")
-                #for key in vi.vid_info: self.log.dev_log(f"vid_info key: {key}")
-                '''
-                vid_info key: responseContext
-                vid_info key: playabilityStatus
-                vid_info key: streamingData
-                vid_info key: playbackTracking
-                vid_info key: captions
-                vid_info key: videoDetails
-                vid_info key: playerConfig
-                vid_info key: storyboards
-                vid_info key: trackingParams
-                vid_info key: attestation
-                vid_info key: adBreakParams
-                vid_info key: playerSettingsMenuData
-                '''
-                #for key in details: self.log.dev_log(f"details key: {key}")
-                '''
-                details key: videoId
-                details key: title
-                details key: lengthSeconds
-                details key: channelId
-                details key: isOwnerViewing
-                details key: shortDescription
-                details key: isCrawlable
-                details key: thumbnail
-                details key: allowRatings
-                details key: viewCount
-                details key: author
-                details key: isPrivate
-                details key: isUnpluggedCorpus
-                details key: isLiveContent
-                '''
-
-                details = vi.vid_info.get('videoDetails', {})
-                title = details.get('title', '')
-                views = details.get('viewCount', 0)
-                author = details.get('author', '')
-                keywords = str(details.get('keywords', []))
-                
-                shortDescription = details.get('shortDescription', '')
-                lengthSeconds = details.get('lengthSeconds', '')
-                
-                captions = vi.vid_info.get('captions', {})
-                playerCaptionsTracklistRenderer = captions.get('playerCaptionsTracklistRenderer', {})
-                captionTracks = playerCaptionsTracklistRenderer.get('captionTracks', {})
-
-                if len(captionTracks) > 0:
-                    language_code = captionTracks[0].get('languageCode', '')
-                    is_translatable = captionTracks[0].get('isTranslatable', False)
-                else:
-                    language_code = ''
-                    is_translatable = False
-
-                streamingData = vi.vid_info.get('streamingData', {})
-                progressive_formats = str(streamingData.get('formats', {}))
-                adaptive_formats = str(streamingData.get('adaptiveFormats', {}))
-
-            except Exception as e:
-                self.log.dev_log(f"Error parse vid_info: {e}")
-                raise e
-
-            video.video_key = task['video_key']
-            video.system = task['system']
-            video.platform = task['platform']
-            video.platform_type =  task['platform_type']
-            video.title = title
-            video.url =  task['url']
-            video.views = views
-            video.author = author
-            video.keywords = keywords
-            video.short_description = shortDescription
-            video.length_seconds = lengthSeconds
-            video.language_code = language_code
-            video.progressive_formats = progressive_formats
-            video.adaptive_formats = adaptive_formats
-            video.is_translatable = is_translatable
-            video.video_info = str(vi.vid_info)
+                    self.log.dev_log(f"{l} Download not needed")
             
-            db.session.add(video)
-            db.session.commit()
-            self.log.status_log(f"Created Video Info: task_id {task['id']} video_key: {task['video_key']}")
-            return is_translatable
+            self.change_task_status(task, 2)
+            self.log.status_log(f"{l} Process Task: Complite")
         except Exception as e:
-            self.log.error_log(f"Error create video info task id: {task['id']} key: {task['video_key']}. Error: {e}")
-            raise e
-
-    def create_transcript_info(self, task):
-        try:
-            self.log.status_log(f"Transcript info task id: {task['id']} key: {task['video_key']}")
-            try:
-                transcript_list = YouTubeTranscriptApi.list_transcripts(task['video_key'])
-                
-                for transcript in transcript_list:
-                    #self.log.dev_log(f"Transcript list key: {transcript}")
-
-                    language = transcript.language
-                    language_code = str(transcript.language_code)
-                    is_generated = transcript.is_generated
-                    is_translatable = transcript.is_translatable
-                    auto_subtitles = ''
-                    manual_subtitles = ''
-
-                    if is_translatable:
-
-                        if not is_generated:
-                            if transcript_list.find_manually_created_transcript([language_code]):
-                                manual_subtitles = str(YouTubeTranscriptApi.get_transcript(task['video_key'], languages=[language_code]))
-                        else:
-                            if transcript_list.find_transcript([language_code]):
-                                auto_subtitles = str(YouTubeTranscriptApi.get_transcript(task['video_key'], languages=[language_code]))
-                    '''
-                    self.log.dev_log(f"transcript.language {language}")
-                    self.log.dev_log(f"transcript.language_code {language_code}")
-                    self.log.dev_log(f"transcript.is_generated {is_generated}")
-                    self.log.dev_log(f"transcript.is_translatable {is_translatable}")
-                    '''
-
-                    t = Transcript()
-                    t.video_key = task['video_key']
-                    
-                    t.language = language
-                    t.language_code = language_code
-                    t.is_generated = is_generated
-                    t.is_translatable = is_translatable
-                    t.translation_languages = ''
-                    t.auto_subtitles = auto_subtitles
-                    t.manual_subtitles = manual_subtitles
-
-                    t.transcript_info = str(transcript_list)
-
-                    db.session.add(t)
-                    db.session.commit()
-
-                message = f"Created Transcript Info: task_id {task['id']} video_key: {task['video_key']}"
-
-            except Exception as e:
-                err = str(e)
-                if 'Subtitles are disabled for this video' in err or 'TranscriptsDisabled' in err:
-                    message = f"Subtitles are disabled for this video {task['video_key']} task id: {task['id']}."
-                    pass
-                else:
-                    self.log.error_log(f"Transcript list. task id: {task['id']} key: {task['video_key']}. Error: {e}")
-                    raise e
-            
-            self.log.status_log(message)
-
-        except Exception as e:
-            self.log.error_log(f"Transcript info task id: {task['id']} key: {task['video_key']}. Error: {e}")
+            self.log.error_log(f"{l} Process Task Error: {e}")
             raise e
 
     def generate_data_frame(self, type):
@@ -532,7 +352,6 @@ class Service():
         
     def try_yolo(self):
         try:
-
             pass
 
         except Exception as e:
