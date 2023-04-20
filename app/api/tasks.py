@@ -2,7 +2,7 @@ from app import db
 from app.api import bp
 from app.api.errors import bad_request, not_found
 from app.logger import Logger
-from app.models import User, Task, Video
+from app.models import User, Task
 from app.service import logic, video_service
 
 from flask import request, jsonify, url_for
@@ -132,40 +132,3 @@ def run_task(id):
     response = jsonify(task)
     response.status_code = 200
     return response
-
-'''
-@bp.route('/tasks/set-key', methods=['POST'])
-def set_key():
-    log.status_log(f"Try set video keys")
-    data = request.get_json() or {}
-
-    tasks = Task.to_collection_short_dict(Task.query.all())
-
-    for t in tasks['items']:
-        if t['video_key']: 
-            task = Task()
-            task = Task.query.get(t['id'])
-
-            video_key = {'video_key':str(t['url'][-11:])}
-            
-            task.from_dict(video_key, new_task=False)
-            db.session.commit()
-
-    log.status_log(f"Task complited!")
-    response = jsonify("Task complited!")
-    response.status_code = 200
-    return response
-
-@bp.route('/tasks/try-yolo', methods=['POST'])
-def try_yolo():
-    log.dev_log(f"Try YOLO: Begin")
-    data = request.get_json() or {}
-
-    service.try_yolo()
-
-    response = jsonify("Try YOLO: Complite!")
-    response.status_code = 200
-    log.dev_log(f"Try YOLO: Complite!")
-    return response
-
-'''

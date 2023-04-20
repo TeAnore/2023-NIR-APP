@@ -7,7 +7,6 @@ from app.logger import Logger
 from pytube import YouTube
 from pytube import exceptions
 
-
 class VideoService():
     def __init__(self):
         self.log = Logger()

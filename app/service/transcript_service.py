@@ -4,7 +4,6 @@ from app.logger import Logger
 
 from youtube_transcript_api import YouTubeTranscriptApi
 
-
 class TranscriptService():
     def __init__(self):
         self.log = Logger()

@@ -1,13 +1,14 @@
 import json
 from app import db
-from app.service import logic
+from app.service import logic, data_frame_logic
 from app.logger import Logger
 from app.api import bp
 from app.api.errors import bad_request, not_found, error_response
 from flask import request, jsonify
 
-log = Logger()
+log     = Logger()
 service = logic.Service()
+dfs     = data_frame_logic.DFService()
 
 @bp.route('/df/generate', methods=['POST'])
 def gen_data_frame():
@@ -18,7 +19,7 @@ def gen_data_frame():
         if 'type' not in data:
             return bad_request(f"must include type field")
 
-        result = service.generate_data_frame(data['type'])
+        result = dfs.generate_data_frame(data['type'])
         #tmp = json.loads(result)
         #response = jsonify(json.dumps(tmp))
         msg = f"Data frame type {data['type']} generation complite."
