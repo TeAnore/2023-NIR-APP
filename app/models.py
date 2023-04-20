@@ -253,7 +253,6 @@ class Video(PaginatedAPIMixin, BaseModel):
             if not new_video:
                 self.updated = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
-
 class Transcript(PaginatedAPIMixin, BaseModel):
     __tablename__ = 'transcript'
     video_key = db.Column(db.String(11), nullable=False, index=True)

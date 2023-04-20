@@ -1,6 +1,6 @@
 from app import db
 from app.api import bp
-from app.api.errors import bad_request, not_found
+from app.api.errors import bad_request, not_found, internal_server_error
 from app.logger import Logger
 from app.models import User, Task
 from app.service import logic, video_service

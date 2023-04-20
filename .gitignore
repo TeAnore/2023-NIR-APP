@@ -4,6 +4,7 @@ config.py
 # Directories
 __pycache__/
 app/__pycache__/
+app/config/
 venv/
 migrations/
 source/
@@ -12,6 +13,7 @@ translations/
 dumps/
 YOLO/
 runs/
+config/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
