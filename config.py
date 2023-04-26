@@ -24,7 +24,6 @@ class Config(object):
     flask_config = get_flask_config(FILE_CONFIG)
     db_config = get_db_config(FILE_CONFIG)
 
-
     SECRET_KEY = os.environ.get('SECRET_KEY') or flask_config['secret_key']
 
     # Use to LocalHost Developing
@@ -47,8 +46,9 @@ class Config(object):
     MS_TRANSLATOR_KEY = os.environ.get('MS_TRANSLATOR_KEY')
     TASKS_PER_PAGE = 100
     
-    FILE_CONFIG = os.path.join(basedir, 'config', 'config.yaml')
+    #FILE_CONFIG = os.path.join(basedir, 'config', 'config.yaml')
     PATH_DOWNLOAD = os.path.join(basedir, 'downloads', 'youtube')
     PATH_DUMPS = os.path.join(basedir, 'dumps')
     PATH_YOLO =  os.path.join(basedir, 'YOLO')
-    PATH_MODELS = os.path.join(basedir, 'models')
+    PATH_MODELS = os.path.join(PATH_YOLO, 'models')
+    PATH_FRAMES = os.path.join(PATH_YOLO, 'frames')
