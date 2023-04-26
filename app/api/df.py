@@ -1,6 +1,6 @@
 import json
 from app import db
-from app.service import logic, data_frame_logic
+from app.service import data_frame_service, logic
 from app.logger import Logger
 from app.api import bp
 from app.api.errors import bad_request, not_found, error_response
@@ -8,7 +8,7 @@ from flask import request, jsonify
 
 log     = Logger()
 service = logic.Service()
-dfs     = data_frame_logic.DFService()
+dfs     = data_frame_service.DFService()
 
 @bp.route('/df/generate', methods=['POST'])
 def gen_data_frame():
