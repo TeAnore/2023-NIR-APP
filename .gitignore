@@ -14,6 +14,7 @@ dumps/
 YOLO/
 runs/
 config/
+tmp/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

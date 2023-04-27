@@ -86,7 +86,10 @@ class Service():
                     # Получаем объект с YouTube
                     try:
                         video = self.vs.get_youtube_object(task['url'])
-                        playability_status = video.vid_info.get('playabilityStatus', {})
+
+                        if str(type(video)) != 'YouTube':
+                            raise Exception(video)
+
                     except Exception as e:
                         error_msg = f"Video Info. YT-PT Error: {e}"
                         self.change_task_status(task, 1, error_msg)
@@ -96,7 +99,7 @@ class Service():
 
                     # Проверяем доступность информации о видео
                     # Проверяем возможность воспроизведения
-                    result, status, reason = self.vs.check_availability(task, playability_status)
+                    result, status, reason = self.vs.check_availability(video.vid_info['playabilityStatus'])
                     if result:
                         try:
                             video_info = self.vs.create_video_info(task, video)
@@ -118,7 +121,24 @@ class Service():
                         return error_info
                 else:
                     self.log.dev_log(f"{l} Video Info. Exist")
-                
+
+                if task['caption'] == 'Unknow':
+                    try:
+                        video = self.vs.get_youtube_object(task['url'])
+                        if str(type(video)) != 'YouTube':
+                            raise Exception(video)
+                        caption = self.vs.get_video_title(video)
+
+                        task['caption'] = caption
+                        self.update_task(task)
+                        
+                    except Exception as e:
+                        error_msg = f"Video Info. Try UPD Caption YT-PT Error: {e}"
+                        self.change_task_status(task, 1, error_msg)
+                        error_info = f"{l} {error_msg}"
+                        self.log.error_log(error_info)
+                        return error_info
+
                 is_translatable = video_info['is_translatable']
                 is_downloaded = video_info['is_downloaded']
 
@@ -205,13 +225,13 @@ class Service():
                 else:
                     self.log.dev_log(f"{l} Download not needed")
             
-
             # YOLO Logic Block
-            needAnalysys = True
+            needAnalysys = False
             if is_downloaded and needAnalysys:                
 
-                #self.fs.extract_frames_from_video(current_app.config['PATH_DOWNLOAD'], task['video_key'] + ".mp4", current_app.config['PATH_FRAMES'])
+                self.fs.extract_frames_from_video(current_app.config['PATH_DOWNLOAD'], task['video_key'] + ".mp4", current_app.config['PATH_FRAMES'])
                 self.yolo.try_yolo(current_app.config['PATH_MODELS'], current_app.config['PATH_FRAMES'])
+                #self.fs.clear_frames(current_app.config['PATH_FRAMES'])
 
             else:
                 self.log.dev_log(f"{l} YOLO Analysis. Exist")

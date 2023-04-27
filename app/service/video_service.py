@@ -43,16 +43,16 @@ class VideoService():
         video.from_dict(data, new_video=False)
         db.session.commit()
 
-    def check_availability(self, task, info):
+    def check_availability(self, info):
         result = True
         try:
             status = info['status']
             if status != 'OK':
                 reason = info['reason']
-                self.log.msg_log(f"Check availability task_id: {task['id']} status: {status} - reason: {reason}")
+                self.log.msg_log(f"Check availability status: {status} - reason: {reason}")
             else:
                 reason = ''
-                self.log.msg_log(f"Check availability task_id: {task['id']} status: {status}")
+                self.log.msg_log(f"Check availability status: {status}")
 
             if status == 'UNPLAYABLE':
                 if reason == 'Join this channel to get access to members-only content like this video, and other exclusive perks.':
@@ -78,7 +78,7 @@ class VideoService():
             else:
                 result = True
         except Exception as e:
-            self.log.error_log(f"Error check availability task_id: {task['id']}. Error: {e}")
+            self.log.error_log(f"Error check availability. Error: {e}")
             result = False
             pass
         
@@ -126,21 +126,33 @@ class VideoService():
         
         return platform, patform_type
 
+    def get_video_title(self, video):
+        details = video.vid_info.get('videoDetails', {})
+        title = details.get('title', '')
+
+        return title
+
     def get_youtube_object(self, url):
         result = ''
         try:
             for i in range(0,13):
                 try: 
                     video = YouTube(url)
-                    #self.log.dev_log(f"Type YouTube(url): {type(video)}")
-                    title = video.title
-                    stream_tag_id = video.streams.filter(progressive="True").get_highest_resolution().itag
+                    
+                    title = self.get_video_title(video)
+
+                    is_availible, status, reason = self.check_availability(video.vid_info['playabilityStatus'])
+                    
+                    if not is_availible:
+                        error_msg = f"Video Info. Playability Status {title}: False = status: {status} - reason: {reason}"
+                        return error_msg
+
                 except exceptions.PytubeError as e:
                     self.log.dev_log(f"[{i}] get_youtube_object PytubeError: {e}")
                     result = e
                     continue
                 except Exception as e:
-                    self.log.dev_log(f"[{i}] get_youtube_object: {e}")
+                    self.log.dev_log(f"[{i}] get_youtube_object error: {e}")
                     result = e
                     continue
                 else:

@@ -61,8 +61,7 @@ def create_task():
                     if str(type(vi)) == "<class 'str'>":
                         data['caption'] = 'Unknow'
                     else:
-                        details = vi.vid_info.get('videoDetails', {})
-                        data['caption'] = details.get('title', '')
+                        data['caption'] = vs.get_video_title(vi)
 
                 task = Task()
                 task.from_dict(data, new_task=True)
