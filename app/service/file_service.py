@@ -35,15 +35,45 @@ class FileService:
             input_file_name = os.path.join(filePath, fileName)
             video = cv2.VideoCapture(input_file_name)
             
+            total_frame_cnt = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+            fps = int(video.get(cv2.CAP_PROP_FPS))
+            
+            duration = total_frame_cnt / fps
+
+            minutes = duration / 60
+            hours = minutes / 3600
+
+            if hours > 1:
+                k = duration / 100
+            elif hours <= 0 and  minutes > 3:
+                k = duration / 10
+            else:
+                k = 1
+
+            second = 1
             cnt = 0
             success = 1
-            while success:
+            while success or second <= duration:
+                video.set(cv2.CAP_PROP_POS_MSEC, second * k)
                 success, image = video.read()
                 if success:
                     output_file_name = os.path.join(framePath, f"{fileName[:-4]}_frame_{cnt}.jpg")
                     #self.log.dev_log(f"output_file_name: {output_file_name} status: {success}")
                     cv2.imwrite(output_file_name, image)
                     cnt += 1
+                    second += 1
+
         except Exception as e:
-            self.log.dev_log(f"extract_frames_from_video file: {filePath}\{fileName}. Error: {e}")
+            self.log.error_log(f"extract_frames_from_video file: {filePath}\{fileName}. Error: {e}")
+            raise e
+    
+    def clear_frames(self, framePath):
+        try:
+            files = self.get_files_from_path(framePath)
+
+            for f in files:
+                os.remove(os.path.join(framePath, f))
+
+        except Exception as e:
+            self.log.error_log(f"clear_frames. Error: {e}")
             raise e

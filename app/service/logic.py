@@ -23,7 +23,9 @@ class Service():
             result = 'PROCESS'
         elif task['status'] == 1: 
             
-            if task['error'].lower() == '':
+            mask_login_required = re.compile("^.*LOGIN_REQUIRED.*$")
+
+            if str(task['error']).lower() != None and mask_login_required.match(str(task['error']).upper()):
                 result = 'REPAIR'
             else:
                 result = 'BAD'
@@ -39,7 +41,7 @@ class Service():
         data = {}
         
         data["status"] = status
-        data["error"] = error
+        data["error"] = str(error)
 
         task.from_dict(data, new_task=False)
         db.session.commit()
@@ -91,8 +93,8 @@ class Service():
                             raise Exception(video)
 
                     except Exception as e:
+                        self.change_task_status(task, 1, str(e))
                         error_msg = f"Video Info. YT-PT Error: {e}"
-                        self.change_task_status(task, 1, error_msg)
                         error_info = f"{l} {error_msg}"
                         self.log.error_log(error_info)
                         return error_info
@@ -105,11 +107,11 @@ class Service():
                             video_info = self.vs.create_video_info(task, video)
                             
                             if str(type(video)) == "<class 'str'>":
-                                raise Exception('Bad video type', video)
+                                raise Exception(video)
 
                         except Exception as e:
+                            self.change_task_status(task, 1, str(e))
                             error_msg = f"Video Info. Create Error: {e}"
-                            self.change_task_status(task, 1, error_msg)
                             error_info = f"{l} {error_msg}"
                             self.log.error_log(error_info)
                             return error_info
@@ -125,16 +127,18 @@ class Service():
                 if task['caption'] == 'Unknow':
                     try:
                         video = self.vs.get_youtube_object(task['url'])
-                        if str(type(video)) != 'YouTube':
+
+                        if str(type(video)) == "<class 'str'>":
                             raise Exception(video)
+                        
                         caption = self.vs.get_video_title(video)
 
                         task['caption'] = caption
                         self.update_task(task)
                         
                     except Exception as e:
+                        self.change_task_status(task, 1, e)
                         error_msg = f"Video Info. Try UPD Caption YT-PT Error: {e}"
-                        self.change_task_status(task, 1, error_msg)
                         error_info = f"{l} {error_msg}"
                         self.log.error_log(error_info)
                         return error_info
@@ -162,17 +166,6 @@ class Service():
                 else:
                     self.log.warning_log(f"{l} Transcript Info. Reason: Subtitles or Transcripts are disabled for this video.")
 
-                '''
-                try:
-                    files = []
-                    with os.scandir(current_app.config['PATH_DOWNLOAD']) as it:
-                        for entry in it:
-                            if not entry.name.startswith('.') and entry.is_file():
-                                files.append(entry.name)
-                except Exception as e:
-                    raise e
-                '''
-
                 # Скачиваем видео
                 if not is_downloaded:
                     try:
@@ -182,11 +175,11 @@ class Service():
                                 video = self.vs.get_youtube_object(task['url'])
 
                                 if str(type(video)) == "<class 'str'>":
-                                    raise Exception('Bad video type', video)
+                                    raise Exception(video)
 
                             except Exception as e:
+                                self.change_task_status(task, 1, e)
                                 error_msg = f"Download YT-PT Error: {e}"
-                                self.change_task_status(task, 1, error_msg)
                                 error_info = f"{l} {error_msg}"
                                 self.log.error_log(error_info)
                                 return error_info
@@ -195,15 +188,6 @@ class Service():
                         stream_tag_id = video.streams.filter(progressive="True").get_highest_resolution().itag
 
                         stream = video.streams.get_by_itag(stream_tag_id)
-                        
-                        '''
-                        r = False
-                        file_name = task['video_key'] + ".mp4"
-                        self.log.dev_log(f"Task file_name: {file_name}")
-                        for fn in files:
-                            if fn == file_name:
-                                r = True
-                        '''
 
                         r = self.fs.check_exist_file(current_app.config['PATH_DOWNLOAD'], task['video_key'] + ".mp4")
                         if not r:
@@ -226,12 +210,13 @@ class Service():
                     self.log.dev_log(f"{l} Download not needed")
             
             # YOLO Logic Block
-            needAnalysys = False
+            needAnalysys = True
+            is_downloaded = True
             if is_downloaded and needAnalysys:                
 
                 self.fs.extract_frames_from_video(current_app.config['PATH_DOWNLOAD'], task['video_key'] + ".mp4", current_app.config['PATH_FRAMES'])
                 self.yolo.try_yolo(current_app.config['PATH_MODELS'], current_app.config['PATH_FRAMES'])
-                #self.fs.clear_frames(current_app.config['PATH_FRAMES'])
+                self.fs.clear_frames(current_app.config['PATH_FRAMES'])
 
             else:
                 self.log.dev_log(f"{l} YOLO Analysis. Exist")
@@ -239,6 +224,7 @@ class Service():
 
             self.change_task_status(task, 2)
             self.log.status_log(f"{l} Process Task: Complite")
+
         except Exception as e:
             self.log.error_log(f"{l} Process Task Error: {e}")
             raise e

@@ -49,10 +49,10 @@ class VideoService():
             status = info['status']
             if status != 'OK':
                 reason = info['reason']
-                self.log.msg_log(f"Check availability status: {status} - reason: {reason}")
+                self.log.msg_log(f"Check availability status: {status} - reason: {reason} - info: {info}")
             else:
                 reason = ''
-                self.log.msg_log(f"Check availability status: {status}")
+                self.log.msg_log(f"Check availability status: {status} - info: {info}")
 
             if status == 'UNPLAYABLE':
                 if reason == 'Join this channel to get access to members-only content like this video, and other exclusive perks.':
@@ -138,13 +138,11 @@ class VideoService():
             for i in range(0,13):
                 try: 
                     video = YouTube(url)
-                    
-                    title = self.get_video_title(video)
 
                     is_availible, status, reason = self.check_availability(video.vid_info['playabilityStatus'])
                     
                     if not is_availible:
-                        error_msg = f"Video Info. Playability Status {title}: False = status: {status} - reason: {reason}"
+                        error_msg = f"Status: {status} - Reason: {reason}"
                         return error_msg
 
                 except exceptions.PytubeError as e:
@@ -157,11 +155,12 @@ class VideoService():
                     continue
                 else:
                     return video
-
+            
             return str(result)
 
         except Exception as e:
             raise e
+        
 
     def create_video_info(self, task, vi):
         try:
