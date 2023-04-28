@@ -41,30 +41,43 @@ class FileService:
             duration = total_frame_cnt / fps
 
             minutes = duration / 60
-            hours = minutes / 3600
+            hours = duration / 3600
 
             if hours > 1:
-                k = duration / 100
+                k = fps * 100
             elif hours <= 0 and  minutes > 3:
-                k = duration / 10
+                k = fps * 10
             else:
-                k = 1
+                k = fps
 
-            second = 1
+
+            self.log.dev_log(f"total_frame_cnt: {total_frame_cnt}")
+            self.log.dev_log(f"fps: {fps}")
+            self.log.dev_log(f"duration: {duration}")
+
+            self.log.dev_log(f"hours: {hours}")
+            self.log.dev_log(f"minutes: {minutes}")
+            self.log.dev_log(f"k: {k}")
+
             cnt = 0
             success = 1
-            while success or second <= duration:
-                video.set(cv2.CAP_PROP_POS_MSEC, second * k)
+            while success:
+                video.set(cv2.CAP_PROP_POS_FRAMES, cnt * k)
                 success, image = video.read()
                 if success:
                     output_file_name = os.path.join(framePath, f"{fileName[:-4]}_frame_{cnt}.jpg")
-                    #self.log.dev_log(f"output_file_name: {output_file_name} status: {success}")
+                    self.log.dev_log(f"output_file_name: {output_file_name} status: {success}")
                     cv2.imwrite(output_file_name, image)
                     cnt += 1
-                    second += 1
+
+            video.release()
+            #cv2.destroyAllWindows()
 
         except Exception as e:
+            if video.isOpened(): 
+                video.release()
             self.log.error_log(f"extract_frames_from_video file: {filePath}\{fileName}. Error: {e}")
+
             raise e
     
     def clear_frames(self, framePath):
