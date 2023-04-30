@@ -3,7 +3,7 @@ import tensorflow as tf
 from ultralytics import YOLO
 
 from app import db
-from app.models import User, Task, Video, Transcript
+from app.models import User, Task, Video, Transcript, YoloResults
 from app.logger import Logger
 from app.service import task_service, video_service, transcript_service, file_service
 from flask import current_app
@@ -32,6 +32,7 @@ class YOLOMOdel():
                 elif class_value in classes and confidence > self.base_confidence:
                     classes[class_value]['cnt'] += 1
 
+
 class YOLOService():
     def __init__(self):
         self.log = Logger()
@@ -39,6 +40,17 @@ class YOLOService():
         self.ts = transcript_service.TranscriptService()
         self.tk = task_service.TaskService()
         self.fs = file_service.FileService()
+
+    def get_yolo_info(self, video_key):
+        cnt_yre = YoloResults.query.filter_by(video_key=video_key).count()
+        if cnt_yre == 1:
+            yre = YoloResults.to_dict(YoloResults.query.filter_by(video_key=video_key).first())
+            self.log.msg_log(f"YOLO Results Info. Found id: {yre['id']}")
+        else:
+            yre = {}
+            self.log.msg_log(f"YOLO Results Info. Not Found")
+
+        return yre
 
     def find_key(self, frame_name):
         name, ext = frame_name.split('.')
@@ -49,17 +61,33 @@ class YOLOService():
         sorted_frames = x = sorted(frames, key=lambda k : self.find_key(k))
         return sorted_frames
 
-    def try_yolo(self, modelPath, framesPath):
+    def try_yolo(self, video_key, modelPath, framesPath):
         try:
             model = YOLOMOdel(model_path=modelPath, base_confidence=0.2)
             frames = self.sort_frames(self.fs.get_files_from_path(framesPath))
             classes = {}
+            frames_count = 0
             for frame in frames:
                 frame_file = os.path.join(framesPath, frame)
                 model.analysis(frame_file, classes)
-           
-            self.log.dev_log(f"try_yolo classes{classes}")
-                
+                frames_count += 1
+
+            if len(classes) == 0:
+                classes['music'] = {'confidence': 0.99999999, 'cnt': frames_count}
+
+            self.save_result(video_key, frames_count, classes)
+            self.log.dev_log(f"try_yolo frames count {frames_count} classes{classes}")
+
         except Exception as e:
             self.log.dev_log(f"try_yolo error: {e}")
             raise e
+
+    def save_result(self, video_key, frames_count, classes):
+        yolo_results = YoloResults()
+
+        yolo_results.video_key = video_key
+        yolo_results.frames = frames_count
+        yolo_results.classes = str(classes)
+
+        db.session.add(yolo_results)
+        db.session.commit()

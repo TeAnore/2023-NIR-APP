@@ -23,3 +23,15 @@ Linux Platform:
 export FLASK_APP=app.py
 flask run
 ```
+
+### Data Base
+Initializing:
+```
+flask db init
+```
+
+Updating:
+```
+flask db migrate -m "Comment"
+flask db upgrade
+```

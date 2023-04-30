@@ -52,3 +52,5 @@ class Config(object):
     PATH_YOLO =  os.path.join(basedir, 'YOLO')
     PATH_MODELS = os.path.join(PATH_YOLO, 'models')
     PATH_FRAMES = os.path.join(PATH_YOLO, 'frames')
+
+    PATH_SENTENCETRANSFORMER_MODELS = os.path.join(basedir, 'models')

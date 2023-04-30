@@ -296,3 +296,53 @@ class Transcript(PaginatedAPIMixin, BaseModel):
                 setattr(self, field, data[field])
             if not new_transcript:
                 self.updated = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+class YoloResults(PaginatedAPIMixin, BaseModel):
+    __tablename__ = 'yolo_results'
+    video_key = db.Column(db.String(11), nullable=False, index=True)
+    frames =  db.Column(db.Integer)
+    classes = db.Column(db.Text)
+
+
+    def to_dict(self, flag=False):
+        data = {
+            'id': self.id,
+            'video_key': self.video_key,
+            'frames': self.frames,
+            'classes': self.classes
+        }
+        return data
+
+    def from_dict(self, data, new_yolo_results=False):
+        for field in [
+                        'video_key',
+                        'frames',
+                        'classes'
+        ]:
+            if field in data:
+                setattr(self, field, data[field])
+            if not new_yolo_results:
+                self.updated = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+class Embedding(PaginatedAPIMixin, BaseModel):
+    __tablename__ = 'embedding'
+    video_key = db.Column(db.String(11), nullable=False, index=True)
+    embedding_data = db.Column(db.Text)
+
+    def to_dict(self, flag=False):
+        data = {
+            'id': self.id,
+            'video_key': self.video_key,
+            'embedding_data': self.embedding_data
+        }
+        return data
+
+    def from_dict(self, data, new_embedding=False):
+        for field in [
+                        'video_key',
+                        'embedding'
+        ]:
+            if field in data:
+                setattr(self, field, data[field])
+            if not new_embedding:
+                self.updated = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
