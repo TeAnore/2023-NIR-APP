@@ -42,6 +42,7 @@ class YOLOService():
         self.fs = file_service.FileService()
 
     def get_yolo_info(self, video_key):
+
         cnt_yre = YoloResults.query.filter_by(video_key=video_key).count()
         if cnt_yre == 1:
             yre = YoloResults.to_dict(YoloResults.query.filter_by(video_key=video_key).first())

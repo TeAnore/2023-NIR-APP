@@ -236,8 +236,6 @@ class Service():
             else:
                 self.log.dev_log(f"{l} YOLO Analysis. Exist")
 
-
-
             embedding_info = self.es.get_embedding_info(task['video_key'])
 
             if not embedding_info:

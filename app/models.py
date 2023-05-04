@@ -303,7 +303,6 @@ class YoloResults(PaginatedAPIMixin, BaseModel):
     frames =  db.Column(db.Integer)
     classes = db.Column(db.Text)
 
-
     def to_dict(self, flag=False):
         data = {
             'id': self.id,

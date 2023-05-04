@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -35,18 +36,35 @@ class EmbeddingService():
         return result
 
     def get_yolo_keys(self, video_key):
+        self.log.dev_log(f"get_yolo_keys - video_key: {video_key}")
         yolo_info = self.yolo.get_yolo_info(video_key)
 
-        # 10% of Full Frames
-        k = 0.1
-        # 50% Confidence
-        confidence = 0.5
         yolo_keys = []
-        for key, value in yolo_info['classes']:
-            if yolo_info['frames'] / k < value['cnt']:
-                if value['confidence'] > confidence:
-                    yolo_keys.append(key)
+        if yolo_info:
+            frames = yolo_info['frames']
+            classes = str(yolo_info['classes'])
+            # 10% of Full Frames
+            k = 0.1
+            # 50% Confidence
+            frames_k = int(frames * k)
+            confidence = 0.3
+            json_acceptable_string = classes.replace("'", "\"")
+            yolo_classes = json.loads(json_acceptable_string)
+            
+            #self.log.dev_log(f"frames {frames}")
+            #self.log.dev_log(f"frames_k {frames_k}")
+            #self.log.dev_log(f"classes {classes}")
+
+            for _class in yolo_classes:
+
+                #self.log.dev_log(f"confidence {yolo_classes[_class]['confidence']}")
+                #self.log.dev_log(f"cnt {yolo_classes[_class]['cnt']}")
+                if frames_k < yolo_classes[_class]['confidence']:
+                    if float(yolo_classes[_class]['cnt']) > confidence:
+                        yolo_keys.append(_class)
         
+        #self.log.dev_log(f"yolo_keys {yolo_keys}")
+
         return yolo_keys
 
     def extract_data(self, video_key):
@@ -59,7 +77,7 @@ class EmbeddingService():
                                    video_info['author'],
                                    self.get_description(video_info['short_description']),
                                    video_info['keywords'],
-                                   self.get_yolo_keys( video_info['keywords']))
+                                   self.get_yolo_keys(video_key))
         
         sentence = self.clear_text(sentence)
 
@@ -68,7 +86,9 @@ class EmbeddingService():
     def create_embedding(self, video_key):
 
         sentence = self.extract_data(video_key)
-        model = SentenceTransformer(os.path.join(current_app.config['PATH_SENTENCETRANSFORMER_MODELS'], 'distiluse-base-multilingual-cased-v1'))
+
+        model = SentenceTransformer('distiluse-base-multilingual-cased-v1')
+
         embedding_data = model.encode(sentence)
 
         embedding = Embedding()

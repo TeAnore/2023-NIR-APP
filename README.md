@@ -7,6 +7,9 @@ NIRM
 python.exe -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
+```
+pip freeze > requirements.txt
+```
 
 ### Initializing the application
 

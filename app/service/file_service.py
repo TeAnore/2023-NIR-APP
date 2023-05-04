@@ -26,7 +26,8 @@ class FileService:
         for fn in files:
             if fn == fileName:
                 result = True
-            self.log.dev_log(f"Check exist result {result} for File Name: {fileName} in Path: {filePath}")
+            
+        self.log.dev_log(f"Check exist result {result} for File Name: {fileName} in Path: {filePath}")
 
         return result
     
@@ -35,10 +36,10 @@ class FileService:
             input_file_name = os.path.join(filePath, fileName)
             video = cv2.VideoCapture(input_file_name)
             
-            total_frame_cnt = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-            fps = int(video.get(cv2.CAP_PROP_FPS))
+            total_frame_cnt = int(video.get(cv2.CAP_PROP_FRAME_COUNT)) 
+            fps = int(video.get(cv2.CAP_PROP_FPS))  # 25fps
             
-            duration = total_frame_cnt / fps
+            duration = total_frame_cnt / fps #165
 
             minutes = duration / 60
             hours = duration / 3600
@@ -51,6 +52,16 @@ class FileService:
                 k = fps
 
 
+            '''
+            total_frame_cnt: 4123
+            fps: 25
+            duration: 164.92
+            hours: 0.04581111111111111
+            minutes: 2.7486666666666664
+            k: 25
+            '''
+
+
             self.log.dev_log(f"total_frame_cnt: {total_frame_cnt}")
             self.log.dev_log(f"fps: {fps}")
             self.log.dev_log(f"duration: {duration}")
@@ -60,17 +71,19 @@ class FileService:
             self.log.dev_log(f"k: {k}")
 
             cnt = 0
-            success = 1
-            while success:
+            success = True
+            while (success or (cnt * k <= int(duration))):
                 video.set(cv2.CAP_PROP_POS_FRAMES, cnt * k)
                 success, image = video.read()
                 if success:
                     output_file_name = os.path.join(framePath, f"{fileName[:-4]}_frame_{cnt}.jpg")
                     self.log.dev_log(f"output_file_name: {output_file_name} status: {success}")
                     cv2.imwrite(output_file_name, image)
-                    cnt += 1
-
-            video.release()
+                
+                cnt += 1
+            
+            if video.isOpened(): 
+                video.release()
             #cv2.destroyAllWindows()
 
         except Exception as e:
